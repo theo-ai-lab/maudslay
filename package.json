@@ -1,0 +1,28 @@
+{
+  "name": "maudslay",
+  "version": "0.1.0",
+  "description": "Outcome-verified release gating for computer-use agents: pass^k measured against independent ground truth (confirmation email + backend state), never a second screen-scrape.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 tests/*.test.ts",
+    "sim": "node sim/server.ts",
+    "sink": "node groundtruth/smtp-sink.ts",
+    "oracle": "node harness/oracle.ts",
+    "trials": "node harness/trial-cli.ts",
+    "gate": "node harness/gate.ts",
+    "report": "node harness/report.ts",
+    "promote": "node harness/promote.ts",
+    "mcp": "node mcp/server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "playwright": "^1.57.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^24.0.0"
+  }
+}

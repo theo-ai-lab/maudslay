@@ -1,0 +1,100 @@
+# Maudslay merge-blocking gate.
+#
+# Two jobs:
+#   gate  — runs on every push and pull request. Key-free: it installs deps and
+#           Chromium, typechecks, runs the test suite, builds the oracle goldens,
+#           replays them as stub trials (plumbing/determinism, NOT a capability
+#           claim), then runs the merge-blocking gate. No ANTHROPIC_API_KEY is
+#           required or used.
+#   live  — manual dispatch only (workflow_dispatch). Uses the ANTHROPIC_API_KEY
+#           repository secret to run real trials on claude-opus-4-8 and uploads
+#           the resulting runs/ artifacts. This is the only path that produces a
+#           measured pass^k.
+#
+# NOTE — macOS -> Linux lockfile: package-lock.json is committed from a dev mac.
+# If `npm ci` fails here on a Linux runner with a missing optional dependency
+# (typically an @emnapi/* or platform-specific optional dep that the mac lockfile
+# omitted), regenerate the lockfile cross-platform with:
+#     npx npm@latest --package-lock-only
+# then commit the refreshed package-lock.json. Do not hand-edit the lockfile.
+
+name: gate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: gate (key-free plumbing)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: gate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      # If this step fails on a missing optional dep, see the macOS -> Linux
+      # lockfile note at the top of this file (npx npm@latest --package-lock-only).
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test suite
+        run: npm test
+      - name: Build oracle goldens
+        run: npm run oracle
+      - name: Stub-replay trials (plumbing, not capability)
+        run: npm run trials -- --model stub
+      - name: Merge-blocking gate
+        run: npm run gate
+
+  live:
+    name: live model trials (key-gated)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Documented default. The trials CLI selects the model via --model below;
+      # this mirrors .env.example so a local live run reads the same value.
+      MAUDSLAY_MODEL: claude-opus-4-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Live trials (claude-opus-4-8, k=5)
+        run: npm run trials -- --model claude-opus-4-8 --k 5
+      - name: Merge-blocking gate
+        run: npm run gate
+      # Upload even if the gate step fails so a failing live run's evidence
+      # (including any silent corruption) is preserved for inspection.
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maudslay-live-runs
+          path: |
+            runs/
+            var/trajectories/
+          if-no-files-found: warn
+          retention-days: 30
