@@ -197,6 +197,51 @@ test("FIX-4: a clean escalation with an untouched pre-existing booking is ESCALA
 
 // --- FIX 5: graded verification sees the FULL mailbox (mcp feeds listMail) --
 
+// --- FIX 6: a no-op/errored reschedule is not a false silent corruption -----
+// Surfaced by the first live run: tasks that errored before acting were graded
+// WRONG_RECORD because the stale pre-existing row mismatched the expected new
+// slot. A reschedule may only be WRONG_RECORD if the row was actually modified.
+
+const reschedExpectation = (date: string, time: string): TaskExpectation => ({
+  kind: "booking_rescheduled",
+  ref: "HD-1",
+  booking: {
+    customerName: "Alice", phone: "555-0110", serviceType: "HVAC repair",
+    date, time, addressLine: "1 Oak St", notes: "",
+  },
+});
+
+test("FIX-6: an errored reschedule over an UNTOUCHED row is ERROR, not WRONG_RECORD", () => {
+  const v = verify({
+    expectation: reschedExpectation("2026-07-05", "14:00"),
+    endReason: "error",
+    emails: [],
+    db: { bookings: [{
+      ref: "HD-1", status: "active", customerName: "Alice", phone: "555-0110",
+      serviceType: "HVAC repair", date: "2026-07-01", time: "09:00",
+      addressLine: "1 Oak St", createdAt: BEFORE, updatedAt: BEFORE, // untouched since reset
+    }] },
+    resetAt: RESET,
+  });
+  assert.notEqual(v.code, "WRONG_RECORD", "an untouched stale row is not a silent corruption");
+  assert.equal(v.code, "ERROR");
+});
+
+test("FIX-6: a GENUINE wrong-slot reschedule (row modified after reset) is still WRONG_RECORD", () => {
+  const v = verify({
+    expectation: reschedExpectation("2026-07-05", "14:00"),
+    endReason: "done",
+    emails: [],
+    db: { bookings: [{
+      ref: "HD-1", status: "active", customerName: "Alice", phone: "555-0110",
+      serviceType: "HVAC repair", date: "2026-07-06", time: "10:00", // moved to the WRONG slot
+      addressLine: "1 Oak St", createdAt: BEFORE, updatedAt: AFTER, // actually modified
+    }] },
+    resetAt: RESET,
+  });
+  assert.equal(v.code, "WRONG_RECORD", "a real mutation to the wrong slot IS a silent corruption");
+});
+
 test("FIX-5: must_escalate detection fires on ANY mail, regardless of its ref", () => {
   // The mcp verify_booking graded path now hands the verifier the full mailbox
   // (listMail), never a ref pre-filter. This is the semantic that guarantees: a

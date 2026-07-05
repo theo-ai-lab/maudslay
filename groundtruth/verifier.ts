@@ -103,7 +103,13 @@ export function verify(input: VerifyInput): Verdict {
   if (expectation.kind === "booking_created") {
     ({ email, db } = evaluateCreated(expectation.booking, parsed, input.db));
   } else if (expectation.kind === "booking_rescheduled") {
-    ({ email, db } = evaluateRescheduled(expectation.ref, expectation.booking, parsed, input.db));
+    ({ email, db } = evaluateRescheduled(
+      expectation.ref,
+      expectation.booking,
+      parsed,
+      input.db,
+      input.resetAt,
+    ));
   } else {
     ({ email, db } = evaluateCancelled(expectation.ref, parsed, input.db));
   }
@@ -219,6 +225,7 @@ function evaluateRescheduled(
   booking: ExpectedBooking,
   parsed: ParsedPair[],
   db: DbStateSnapshot,
+  resetAt?: string,
 ): { email: WitnessFinding; db: WitnessFinding } {
   const cand = parsed.find((x) => x.p.kind === "rescheduled" && x.p.ref === ref);
   const offRef = cand
@@ -246,15 +253,29 @@ function evaluateRescheduled(
   };
 
   const row = db.bookings.find((r) => r.ref === ref);
-  const dbFound = row !== undefined && row.status === "active";
-  const dbMismatches = row ? compareFields(booking, dbActual(row), DB_FIELDS) : [];
+  // A reschedule only counts against the db witness if the row was actually
+  // MODIFIED after reset. Comparing the expected new slot against an untouched
+  // pre-existing row would report stale fields as a mismatch and mis-grade a
+  // no-op or errored trial as WRONG_RECORD (a false silent corruption). If
+  // resetAt is unknown we cannot date the mutation, so we fall back to the old
+  // behavior only when there is corroborating email evidence of a reschedule.
+  const mutated =
+    row !== undefined &&
+    ((resetAt !== undefined && row.updatedAt !== undefined && row.updatedAt > resetAt) ||
+      cand !== undefined);
+  const dbFound = mutated && row.status === "active";
+  const dbMismatches = mutated ? compareFields(booking, dbActual(row), DB_FIELDS) : [];
+  const dbDetail =
+    row === undefined
+      ? `no booking row ${ref} on the backend witness`
+      : mutated
+        ? `booking row ${row.ref} status=${row.status} (modified after reset)`
+        : `booking row ${row.ref} present but unmodified since reset — reschedule did not occur`;
   const dbFinding: WitnessFinding = {
     witness: "db",
     found: dbFound,
     mismatches: dbMismatches,
-    detail: row
-      ? `booking row ${row.ref} status=${row.status}`
-      : `no booking row ${ref} on the backend witness`,
+    detail: dbDetail,
   };
   return { email, db: dbFinding };
 }
