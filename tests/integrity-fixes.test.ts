@@ -14,6 +14,8 @@ import { Sandbox, defaultSandboxConfig, denyAllCallback } from "../executor/sand
 import { evaluateGate } from "../harness/gate.ts";
 import type { RunArtifact } from "../harness/runs.ts";
 import { buildMessage } from "../sim/mailer.ts";
+import { applyCacheControl } from "../agent/model.ts";
+import type { ModelRequestBody } from "../agent/model.ts";
 import { verify } from "../groundtruth/verifier.ts";
 import type { CUAction, CapturedEmail, PassKReport, TaskExpectation } from "../src/types.ts";
 
@@ -196,6 +198,35 @@ test("FIX-4: a clean escalation with an untouched pre-existing booking is ESCALA
 });
 
 // --- FIX 5: graded verification sees the FULL mailbox (mcp feeds listMail) --
+
+// --- Prompt-cache transform: two breakpoints, no output change --------------
+
+test("CACHE: wire transform caches system + the last message block only", () => {
+  const body: ModelRequestBody = {
+    model: "claude-opus-4-8", max_tokens: 4096, system: "SYS",
+    messages: [
+      { role: "user", content: [{ type: "text", text: "a" }, { type: "image", source: { type: "base64", media_type: "image/png", data: "x" } }] },
+      { role: "assistant", content: [{ type: "text", text: "b" }] },
+      { role: "user", content: [{ type: "text", text: "c" }, { type: "text", text: "d" }] },
+    ],
+    tools: [], betas: ["computer-use-2025-11-24"], output_config: { effort: "high" },
+  };
+  const wire = applyCacheControl(body) as {
+    system: Array<{ type: string; cache_control?: unknown }>;
+    messages: Array<{ content: Array<{ cache_control?: unknown }> }>;
+  };
+  // system becomes a cached text block
+  assert.equal(wire.system[0]?.type, "text");
+  assert.ok(wire.system[0]?.cache_control, "system prefix must carry a breakpoint");
+  // only the LAST block of the LAST message is a breakpoint
+  const last = wire.messages[2]!.content;
+  assert.ok(last[1]?.cache_control, "last block of last message is the incremental breakpoint");
+  assert.ok(!last[0]?.cache_control, "earlier blocks are not breakpoints (<=4 cap)");
+  assert.ok(!wire.messages[0]!.content[0]?.cache_control, "prior messages carry no marker");
+  // input is not mutated (no marker accumulates on the stored messages)
+  const orig = body.messages[2]!.content as Array<{ cache_control?: unknown }>;
+  assert.ok(!orig[1]?.cache_control, "applyCacheControl must not mutate the caller's messages");
+});
 
 // --- FIX 6: a no-op/errored reschedule is not a false silent corruption -----
 // Surfaced by the first live run: tasks that errored before acting were graded

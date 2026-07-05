@@ -9,6 +9,7 @@
  * every field on the wire is still typed by `ModelRequestBody`.
  */
 
+import { appendFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
 import type { CUAction, Observation, ModelConfig } from '../src/types.ts';
 
@@ -198,6 +199,12 @@ export interface RawModelResponse {
   stop_reason: string | null;
   model?: string;
   stop_details?: { category?: string | null; explanation?: string } | null;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
 }
 
 export interface ModelToolCall {
@@ -341,9 +348,42 @@ export class AnthropicModel implements AgentModel {
     const api = this.client.beta.messages as unknown as {
       create(b: unknown): Promise<RawModelResponse>;
     };
-    const raw = await api.create(body);
+    const raw = await api.create(applyCacheControl(body));
+    // Optional per-request usage log (enables real $/verified-task accounting and
+    // confirms cache reads). Gated on an env var so offline tests never touch fs.
+    const usageLog = process.env.MAUDSLAY_USAGE_LOG;
+    if (usageLog && raw.usage) {
+      appendFileSync(usageLog, JSON.stringify({ model: raw.model ?? this.config.model, ...raw.usage }) + '\n');
+    }
     const turn = parseResponse(raw);
     this.messages.push({ role: 'assistant', content: turn.assistantContent });
     return turn;
   }
+}
+
+/**
+ * Add prompt-cache breakpoints at the wire boundary — a pure cost optimization
+ * that does not change model outputs. The screenshot history grows every turn
+ * and is never pruned, so without caching the input cost is quadratic in trial
+ * length. Two ephemeral breakpoints cache the stable prefix: the system+tools
+ * header, and the conversation up to the final block (each turn re-reads the
+ * prior turns at ~0.1x instead of full price). Does not mutate stored messages,
+ * so no marker accumulates across turns.
+ */
+export function applyCacheControl(body: ModelRequestBody): unknown {
+  const eph = { type: 'ephemeral' } as const;
+  const lastMsg = body.messages.length - 1;
+  const messages = body.messages.map((m, i) => {
+    if (i !== lastMsg || !Array.isArray(m.content) || m.content.length === 0) return m;
+    const lastBlock = m.content.length - 1;
+    const content = m.content.map((b, j) =>
+      j === lastBlock ? { ...(b as object), cache_control: eph } : b,
+    );
+    return { role: m.role, content };
+  });
+  return {
+    ...body,
+    system: [{ type: 'text', text: body.system, cache_control: eph }],
+    messages,
+  };
 }
