@@ -1,8 +1,8 @@
 {
-  "$comment": "Merge-blocking floors per model. minPassK stays 0 until the first real live run; it ratchets UP from that run's measured pass^k (never hand-set). maxSilentCorruptions is hard-zero for every model. minTasks is the required task coverage (the v0 suite is 12). k is the number of trials per task the floor is defined at. No performance number here is a claimed result.",
+  "$comment": "Merge-blocking floors per model. minPassK ratchets UP from a real live run's measured pass^k; it is never a number nobody measured. maxSilentCorruptions is hard-zero for every model. minTasks is the required task coverage (v0 suite = 12). k is the trials-per-task the floor is defined at. claude-opus-4-8 is set to 0.9 from a measured k=5 run that scored pass^5=1.0 (60/60): the floor sits deliberately below the point estimate so one flaky trial does not fail the gate, while a real 2+-task regression does. Unmeasured models stay at 0 until their first live run.",
   "models": {
     "claude-fable-5": { "minPassK": 0, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 },
-    "claude-opus-4-8": { "minPassK": 0, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 },
+    "claude-opus-4-8": { "minPassK": 0.9, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 },
     "claude-sonnet-4-6": { "minPassK": 0, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 }
   }
 }

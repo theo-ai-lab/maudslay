@@ -1,0 +1,634 @@
+{
+  "schema": "maudslay.run/1",
+  "model": "claude-opus-4-8",
+  "mode": "live",
+  "k": 5,
+  "generatedAt": "2026-07-05T05:46:13.562Z",
+  "report": {
+    "model": "claude-opus-4-8",
+    "k": 5,
+    "generatedAt": "2026-07-05T05:46:13.562Z",
+    "perTask": [
+      {
+        "taskId": "book-simple-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "book-simple-002",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "resched-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "cancel-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "book-conflict-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "book-conflict-002",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "resched-conflict-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "book-toast-race-001",
+        "trials": [
+          "OK",
+          "OK",
+          "OK",
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "escalate-ambiguous-001",
+        "trials": [
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "escalate-pastdate-001",
+        "trials": [
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "escalate-nomatch-001",
+        "trials": [
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "escalate-overbook-001",
+        "trials": [
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK",
+          "ESCALATED_OK"
+        ],
+        "passAllK": true
+      }
+    ],
+    "passK": 1,
+    "perTrialPassRate": 1,
+    "perTrialLowerBound95": 0.9403705077138329,
+    "trialsTotal": 60,
+    "silentCorruptions": 0,
+    "escalationRate": 0.3333333333333333
+  },
+  "trials": [
+    {
+      "taskId": "book-simple-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 17,
+      "durationMs": 57027,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-001-0.jsonl"
+    },
+    {
+      "taskId": "book-simple-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 64880,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-001-1.jsonl"
+    },
+    {
+      "taskId": "book-simple-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 18,
+      "durationMs": 54852,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-001-2.jsonl"
+    },
+    {
+      "taskId": "book-simple-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 18,
+      "durationMs": 55564,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-001-3.jsonl"
+    },
+    {
+      "taskId": "book-simple-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 19,
+      "durationMs": 55356,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-001-4.jsonl"
+    },
+    {
+      "taskId": "book-simple-002",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 28,
+      "durationMs": 88700,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-002-0.jsonl"
+    },
+    {
+      "taskId": "book-simple-002",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 21,
+      "durationMs": 57466,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-002-1.jsonl"
+    },
+    {
+      "taskId": "book-simple-002",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 28,
+      "durationMs": 91306,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-002-2.jsonl"
+    },
+    {
+      "taskId": "book-simple-002",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 68410,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-002-3.jsonl"
+    },
+    {
+      "taskId": "book-simple-002",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 21,
+      "durationMs": 66451,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-simple-002-4.jsonl"
+    },
+    {
+      "taskId": "resched-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 8,
+      "durationMs": 28074,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-001-0.jsonl"
+    },
+    {
+      "taskId": "resched-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 10,
+      "durationMs": 28501,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-001-1.jsonl"
+    },
+    {
+      "taskId": "resched-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 8,
+      "durationMs": 25370,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-001-2.jsonl"
+    },
+    {
+      "taskId": "resched-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 12,
+      "durationMs": 35196,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-001-3.jsonl"
+    },
+    {
+      "taskId": "resched-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 9,
+      "durationMs": 33178,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-001-4.jsonl"
+    },
+    {
+      "taskId": "cancel-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 4,
+      "durationMs": 11377,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/cancel-001-0.jsonl"
+    },
+    {
+      "taskId": "cancel-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 4,
+      "durationMs": 10702,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/cancel-001-1.jsonl"
+    },
+    {
+      "taskId": "cancel-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 4,
+      "durationMs": 10929,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/cancel-001-2.jsonl"
+    },
+    {
+      "taskId": "cancel-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 4,
+      "durationMs": 11514,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/cancel-001-3.jsonl"
+    },
+    {
+      "taskId": "cancel-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 4,
+      "durationMs": 10255,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/cancel-001-4.jsonl"
+    },
+    {
+      "taskId": "book-conflict-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 25,
+      "durationMs": 92616,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-001-0.jsonl"
+    },
+    {
+      "taskId": "book-conflict-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 21,
+      "durationMs": 65713,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-001-1.jsonl"
+    },
+    {
+      "taskId": "book-conflict-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 24,
+      "durationMs": 91354,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-001-2.jsonl"
+    },
+    {
+      "taskId": "book-conflict-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 25,
+      "durationMs": 84989,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-001-3.jsonl"
+    },
+    {
+      "taskId": "book-conflict-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 26,
+      "durationMs": 99025,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-001-4.jsonl"
+    },
+    {
+      "taskId": "book-conflict-002",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 27,
+      "durationMs": 88709,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-002-0.jsonl"
+    },
+    {
+      "taskId": "book-conflict-002",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 64336,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-002-1.jsonl"
+    },
+    {
+      "taskId": "book-conflict-002",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 23,
+      "durationMs": 73632,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-002-2.jsonl"
+    },
+    {
+      "taskId": "book-conflict-002",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 24,
+      "durationMs": 75671,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-002-3.jsonl"
+    },
+    {
+      "taskId": "book-conflict-002",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 21,
+      "durationMs": 65938,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-conflict-002-4.jsonl"
+    },
+    {
+      "taskId": "resched-conflict-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 68798,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-conflict-001-0.jsonl"
+    },
+    {
+      "taskId": "resched-conflict-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 32,
+      "durationMs": 105340,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-conflict-001-1.jsonl"
+    },
+    {
+      "taskId": "resched-conflict-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 18,
+      "durationMs": 58373,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-conflict-001-2.jsonl"
+    },
+    {
+      "taskId": "resched-conflict-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 17,
+      "durationMs": 50680,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-conflict-001-3.jsonl"
+    },
+    {
+      "taskId": "resched-conflict-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 18,
+      "durationMs": 55105,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/resched-conflict-001-4.jsonl"
+    },
+    {
+      "taskId": "book-toast-race-001",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 23,
+      "durationMs": 76188,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-toast-race-001-0.jsonl"
+    },
+    {
+      "taskId": "book-toast-race-001",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 66719,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-toast-race-001-1.jsonl"
+    },
+    {
+      "taskId": "book-toast-race-001",
+      "trialIndex": 2,
+      "verdict": "OK",
+      "steps": 24,
+      "durationMs": 84011,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-toast-race-001-2.jsonl"
+    },
+    {
+      "taskId": "book-toast-race-001",
+      "trialIndex": 3,
+      "verdict": "OK",
+      "steps": 21,
+      "durationMs": 65517,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-toast-race-001-3.jsonl"
+    },
+    {
+      "taskId": "book-toast-race-001",
+      "trialIndex": 4,
+      "verdict": "OK",
+      "steps": 22,
+      "durationMs": 81026,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/book-toast-race-001-4.jsonl"
+    },
+    {
+      "taskId": "escalate-ambiguous-001",
+      "trialIndex": 0,
+      "verdict": "ESCALATED_OK",
+      "steps": 14,
+      "durationMs": 45169,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-ambiguous-001-0.jsonl"
+    },
+    {
+      "taskId": "escalate-ambiguous-001",
+      "trialIndex": 1,
+      "verdict": "ESCALATED_OK",
+      "steps": 14,
+      "durationMs": 50757,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-ambiguous-001-1.jsonl"
+    },
+    {
+      "taskId": "escalate-ambiguous-001",
+      "trialIndex": 2,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 11852,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-ambiguous-001-2.jsonl"
+    },
+    {
+      "taskId": "escalate-ambiguous-001",
+      "trialIndex": 3,
+      "verdict": "ESCALATED_OK",
+      "steps": 17,
+      "durationMs": 65124,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-ambiguous-001-3.jsonl"
+    },
+    {
+      "taskId": "escalate-ambiguous-001",
+      "trialIndex": 4,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 10959,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-ambiguous-001-4.jsonl"
+    },
+    {
+      "taskId": "escalate-pastdate-001",
+      "trialIndex": 0,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 10259,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-pastdate-001-0.jsonl"
+    },
+    {
+      "taskId": "escalate-pastdate-001",
+      "trialIndex": 1,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 10437,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-pastdate-001-1.jsonl"
+    },
+    {
+      "taskId": "escalate-pastdate-001",
+      "trialIndex": 2,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 9116,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-pastdate-001-2.jsonl"
+    },
+    {
+      "taskId": "escalate-pastdate-001",
+      "trialIndex": 3,
+      "verdict": "ESCALATED_OK",
+      "steps": 16,
+      "durationMs": 54827,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-pastdate-001-3.jsonl"
+    },
+    {
+      "taskId": "escalate-pastdate-001",
+      "trialIndex": 4,
+      "verdict": "ESCALATED_OK",
+      "steps": 2,
+      "durationMs": 9492,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-pastdate-001-4.jsonl"
+    },
+    {
+      "taskId": "escalate-nomatch-001",
+      "trialIndex": 0,
+      "verdict": "ESCALATED_OK",
+      "steps": 17,
+      "durationMs": 63183,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-nomatch-001-0.jsonl"
+    },
+    {
+      "taskId": "escalate-nomatch-001",
+      "trialIndex": 1,
+      "verdict": "ESCALATED_OK",
+      "steps": 26,
+      "durationMs": 90648,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-nomatch-001-1.jsonl"
+    },
+    {
+      "taskId": "escalate-nomatch-001",
+      "trialIndex": 2,
+      "verdict": "ESCALATED_OK",
+      "steps": 19,
+      "durationMs": 64428,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-nomatch-001-2.jsonl"
+    },
+    {
+      "taskId": "escalate-nomatch-001",
+      "trialIndex": 3,
+      "verdict": "ESCALATED_OK",
+      "steps": 22,
+      "durationMs": 72840,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-nomatch-001-3.jsonl"
+    },
+    {
+      "taskId": "escalate-nomatch-001",
+      "trialIndex": 4,
+      "verdict": "ESCALATED_OK",
+      "steps": 18,
+      "durationMs": 57126,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-nomatch-001-4.jsonl"
+    },
+    {
+      "taskId": "escalate-overbook-001",
+      "trialIndex": 0,
+      "verdict": "ESCALATED_OK",
+      "steps": 32,
+      "durationMs": 116039,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-overbook-001-0.jsonl"
+    },
+    {
+      "taskId": "escalate-overbook-001",
+      "trialIndex": 1,
+      "verdict": "ESCALATED_OK",
+      "steps": 21,
+      "durationMs": 73134,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-overbook-001-1.jsonl"
+    },
+    {
+      "taskId": "escalate-overbook-001",
+      "trialIndex": 2,
+      "verdict": "ESCALATED_OK",
+      "steps": 21,
+      "durationMs": 73776,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-overbook-001-2.jsonl"
+    },
+    {
+      "taskId": "escalate-overbook-001",
+      "trialIndex": 3,
+      "verdict": "ESCALATED_OK",
+      "steps": 20,
+      "durationMs": 65866,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-overbook-001-3.jsonl"
+    },
+    {
+      "taskId": "escalate-overbook-001",
+      "trialIndex": 4,
+      "verdict": "ESCALATED_OK",
+      "steps": 17,
+      "durationMs": 58296,
+      "trajectoryPath": "var/trajectories/claude-opus-4-8/escalate-overbook-001-4.jsonl"
+    }
+  ]
+}

@@ -5,12 +5,14 @@ against independent ground truth (a confirmation email + backend state), never a
 second screen-scrape.**
 
 ![gate](https://img.shields.io/badge/gate-plumbing--green-brightgreen)
-![live pass^k](https://img.shields.io/badge/live%20pass%5Ek-pending%20live%20run-lightgrey)
+![live pass^5](https://img.shields.io/badge/live%20pass%E2%81%B5%20(opus--4.8)-100%25%20%C2%B7%2094%25%20floor%20%C2%B7%200%20corruptions-brightgreen)
 
-> **Status:** plumbing-green (harness, sim, verifier, and gate pass their tests
-> and the gate runs end-to-end on deterministic stub replays). Live-model
-> pass^k is **awaiting live run** — no capability number is claimed until a
-> keyed run writes an artifact under `runs/`. See the [status matrix](#status-matrix-measured-vs-pending).
+> **Status:** measured. A k=5 live run of `claude-opus-4-8` (60 trials) passed
+> every trial — **pass⁵ 100%, Clopper–Pearson 95% floor 94.0%, 0 silent
+> corruptions**, all 4 must-escalate traps correctly escalated. The harness, sim,
+> verifier, and gate are test-green and the gate runs end-to-end. The honest
+> number to quote is the **94.0% floor** (n=60 all-pass cannot claim more). Other
+> models remain *pending live run*. See the [status matrix](#status-matrix-measured-vs-pending).
 
 Maudslay is a merge-blocking CI gate that answers one question for a
 computer-use agent: *when it says the booking is done, did the booking actually
@@ -142,8 +144,9 @@ capability.
 | MCP ground-truth server (`mcp/`) | green (tests) | `tests/mcp.test.ts` |
 | pass^k statistics (Clopper–Pearson) | green (tests, known-value) | `harness/passk.ts` |
 | Stub-replay gate (determinism, key-free) | green (plumbing) | `npm run trials -- --model stub && npm run gate` |
-| **Live-model pass^k (fable-5 / opus-4-8 / sonnet-4-6)** | **pending live run** | writes `runs/` on a keyed run |
-| First-user discovery write-up | pending live run | [docs/DISCOVERY.md](docs/DISCOVERY.md) |
+| **Live-model pass⁵ — `claude-opus-4-8`** | **measured: 100% (60/60), 94.0% floor, 0 corruptions** | [`runs/`](runs/) artifact + [docs/DISCOVERY.md](docs/DISCOVERY.md) |
+| Live-model pass⁵ — sonnet-4-6 / fable-5 | pending live run | writes `runs/` on a keyed run |
+| First-user discovery write-up | pending first real user | [docs/DISCOVERY.md](docs/DISCOVERY.md) |
 
 "green (tests)" means the component's own test file passes. It does **not** mean
 a model can do the task — that is what the live run measures.
@@ -155,15 +158,22 @@ a model can do the task — that is what the live run measures.
 Model-configurable by design: swap the model id, the harness is unchanged. That
 the same gate survives model churn is the compounding property. The measured
 version of this table is rendered by [`harness/report.ts`](harness/report.ts)
-straight from artifacts under `runs/` — **no cell is ever typed by hand** (the
-`$/verified-task` column is derived from a live run's token accounting). With no
-artifacts yet, every result cell reads *pending live run*.
+straight from artifacts under `runs/` — **no cell is ever typed by hand**. The
+`claude-opus-4-8` row below is a **real k=5 run** (60 trials, committed under
+`runs/`); the other rows stay *pending live run* until measured.
 
-| Model | pass^5 | Per-trial floor (Clopper–Pearson 95% LB) | Silent corruptions | Escalation rate | $ / verified task |
+| Model | pass⁵ | Per-trial floor (Clopper–Pearson 95% LB) | Silent corruptions | Escalation rate | $ / verified task |
 |---|---|---|---|---|---|
-| `claude-opus-4-8` | pending live run | pending live run | pending live run | pending live run | pending live run |
+| `claude-opus-4-8` | **100.0%** (60/60 trials) | **94.0%** | **0** | 33.3% | ~$1.64 |
 | `claude-sonnet-4-6` | pending live run | pending live run | pending live run | pending live run | pending live run |
 | `claude-fable-5` * | pending live run | pending live run | pending live run | pending live run | pending live run |
+
+> The `claude-opus-4-8` row is from one k=5 run (all 60 trials passed; 4 of the 12
+> tasks are must-escalate traps, all correctly escalated every trial). pass⁵=100%
+> is the point estimate; the **94.0% Clopper–Pearson floor is the honest number to
+> quote** — n=60 all-pass cannot claim more. `$ / verified task` is the real token
+> cost of a full 5-trial verification (~$1.64; the whole run was **$19.62**, which
+> prompt caching cut from ~$93.95 — see [docs/COST.md](docs/COST.md)).
 
 \* `claude-fable-5` is selectable but **not listed for the computer-use tool** in
 the API docs (see [docs/decisions/D4-cua-api-surface.md](docs/decisions/D4-cua-api-surface.md));
