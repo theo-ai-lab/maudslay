@@ -13,7 +13,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -151,27 +151,48 @@ function perModelTableBlock(md: string): string {
   return md.slice(idx, idx + 1400);
 }
 
-test("per-model table lists the three models and every result cell is pending", () => {
+/** Does a committed run artifact exist for this model id under runs/? */
+function hasRunArtifact(model: string): boolean {
+  try {
+    return readdirSync(resolve(root, "runs")).some(
+      (f) => f.startsWith(model) && f.endsWith(".json"),
+    );
+  } catch {
+    return false;
+  }
+}
+
+test("per-model table: a result percentage is allowed ONLY if artifact-backed; else pending", () => {
   const md = read("README.md");
   const block = perModelTableBlock(md);
   assert.match(block, /fable-5/i, "model row: claude-fable-5");
   assert.match(block, /opus-4-8/i, "model row: claude-opus-4-8");
   assert.match(block, /sonnet-4-6/i, "model row: claude-sonnet-4-6");
-  assert.match(block, /pending live run/i, "cells must read pending live run");
+  // At least one model must still be pending (sonnet/fable are unmeasured).
+  assert.match(block, /pending live run/i, "unmeasured rows must read pending live run");
 
-  // Honesty guard: no fabricated pass^k in the per-model results table body.
-  // The ONLY percentage allowed to appear in the doc is the cited OSWorld 20.6%,
-  // which lives outside this block. Inside the block, no bare percentage cell.
+  // The honesty invariant, strengthened now that a real measurement exists: a
+  // model row may carry a percentage ONLY if a committed runs/<model>-*.json
+  // artifact backs it. Otherwise the row must read "pending live run". This is
+  // exactly the "no number nobody measured" rule, enforced against the filesystem.
   const modelRows = block
     .split("\n")
     .filter((l) => /fable-5|opus-4-8|sonnet-4-6/i.test(l) && l.trimStart().startsWith("|"));
   assert.ok(modelRows.length >= 3, "expected three model rows");
   for (const r of modelRows) {
-    assert.doesNotMatch(
-      r,
-      /\d+(\.\d+)?\s*%/,
-      `model result row must not carry a fabricated percentage: ${r}`,
-    );
+    const model = /opus-4-8/i.test(r)
+      ? "claude-opus-4-8"
+      : /sonnet-4-6/i.test(r)
+        ? "claude-sonnet-4-6"
+        : "claude-fable-5";
+    if (/\d+(\.\d+)?\s*%/.test(r)) {
+      assert.ok(
+        hasRunArtifact(model),
+        `row for ${model} shows a percentage but no committed runs/ artifact backs it: ${r}`,
+      );
+    } else {
+      assert.match(r, /pending live run/i, `unmeasured model row must read pending: ${r}`);
+    }
   }
 });
 
