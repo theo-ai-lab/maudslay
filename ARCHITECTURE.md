@@ -113,9 +113,14 @@ interaction only where no API exists" domain the AWS GA endorses.
   subject under test.
 - `passk.ts` — pass^k and the Clopper–Pearson exact 95% lower bound; pure
   functions unit-tested against known values.
-- `runs.ts` — the run-artifact schema and reader (`runs/`).
+- `runs.ts` — the run-artifact schema and readers (`runs/`): `readRunsAudit`
+  separates well-formed runs from unreadable files; `readRuns` stays the lenient
+  rendering surface.
 - `gate.ts` — reads `runs/` + `ratchet.json` → `GateOutcome` + exit code. Fails
-  hard on any silent corruption; no artifacts = labelled plumbing-only pass.
+  hard on any silent corruption; fails closed on unreadable artifact files and
+  on configured floors with no artifact to enforce them against
+  ([D5](docs/decisions/D5-gate-fail-closed-inputs.md)); no artifacts **and**
+  nothing ratcheted = labelled plumbing-only pass.
 - `report.ts` — renders the per-model markdown table from artifacts (never by
   hand).
 - `promote.ts` — promotes a discovered failure into a new golden.
