@@ -2,18 +2,22 @@
  * The merge-blocking gate. It reads the latest run artifact per model and a
  * `ratchet.json` config, and produces a GateOutcome plus a process exit code.
  *
- * Two invariants, in priority order:
+ * Three invariants, in priority order:
  *  1. HARD: any silent corruption (WRONG_RECORD or ACTED_ON_MUST_ESCALATE) on
  *     any model fails the gate, regardless of pass^k. A gate that ships a
  *     wrongly-written record is worse than useless.
  *  2. RATCHET: for each model with a floor, pass^k may not drop below the
  *     recorded floor, task coverage may not shrink below `minTasks`, and the run
  *     must have used at least the configured k.
+ *  3. FAIL-CLOSED INPUTS: an artifact file that exists but cannot be read as a
+ *     run, and a configured floor (minPassK > 0) with no artifact to enforce it
+ *     against, both fail the gate. Deleting or corrupting a measurement must
+ *     never silently un-enforce the floor it carries.
  *
- * With no run artifacts at all the gate is a labelled no-op (exit 0): the
- * plumbing is wired but nothing has been measured yet. Stub-only runs pass the
- * hard invariant (goldens are successes) but are explicitly reported as
- * plumbing, not a capability claim.
+ * With no run artifacts at all — and nothing ratcheted — the gate is a labelled
+ * no-op (exit 0): the plumbing is wired but nothing has been measured yet.
+ * Stub-only runs pass the hard invariant (goldens are successes) but are
+ * explicitly reported as plumbing, not a capability claim.
  */
 
 import { readFileSync } from "node:fs";
@@ -21,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import type { GateOutcome, RatchetConfig } from "../src/types.ts";
 import { isSilentCorruption } from "../src/types.ts";
-import { readRuns, latestPerModel, type RunArtifact } from "./runs.ts";
+import { readRunsAudit, latestPerModel, type RunArtifact } from "./runs.ts";
 
 export interface GateReport {
   outcome: GateOutcome;
@@ -60,10 +64,41 @@ export function loadRatchet(path: string): RatchetConfig {
 /**
  * Pure gate evaluation over already-loaded run artifacts and a ratchet config.
  * No filesystem, no process exit — so it is exhaustively unit-testable with
- * fabricated-in-test run fixtures.
+ * fabricated-in-test run fixtures. `invalidFiles` carries the names of artifact
+ * files that exist on disk but could not be read as runs (see `readRunsAudit`);
+ * each one fails the gate outright.
  */
-export function evaluateGate(runs: RunArtifact[], ratchet: RatchetConfig): GateReport {
-  if (runs.length === 0) {
+export function evaluateGate(
+  runs: RunArtifact[],
+  ratchet: RatchetConfig,
+  invalidFiles: string[] = [],
+): GateReport {
+  const latest = latestPerModel(runs);
+  const failures: string[] = [];
+  const notes: string[] = [];
+
+  // FAIL-CLOSED: an artifact file that cannot be read as a run is a fact, not
+  // noise — silently skipping it would let a corrupted measurement pass the
+  // gate with its floor unenforced.
+  for (const name of invalidFiles) {
+    failures.push(
+      `runs/${name}: unreadable or malformed run artifact — failing closed; delete or regenerate it`,
+    );
+  }
+
+  // FAIL-CLOSED: a configured floor is a promise that a measurement exists. If
+  // no artifact for that model is present, the floor cannot be enforced and the
+  // gate must not pretend it was.
+  for (const [model, floor] of Object.entries(ratchet.models)) {
+    if (floor.minPassK > 0 && !latest.has(model)) {
+      failures.push(
+        `${model}: ratchet floor minPassK=${floor.minPassK} is configured but no run artifact ` +
+          `is present — the floor cannot be enforced; failing closed`,
+      );
+    }
+  }
+
+  if (runs.length === 0 && failures.length === 0) {
     return {
       outcome: {
         pass: true,
@@ -74,10 +109,6 @@ export function evaluateGate(runs: RunArtifact[], ratchet: RatchetConfig): GateR
       notes: ["no runs"],
     };
   }
-
-  const latest = latestPerModel(runs);
-  const failures: string[] = [];
-  const notes: string[] = [];
 
   for (const [model, run] of latest) {
     // HARD invariant is enforced against the AUTHORITATIVE per-trial verdicts,
@@ -150,9 +181,9 @@ export function evaluateGate(runs: RunArtifact[], ratchet: RatchetConfig): GateR
 // --- CLI -------------------------------------------------------------------
 
 export function runGate(runsDir: string, ratchetPath: string): { report: GateReport; code: number } {
-  const runs = readRuns(runsDir);
+  const { runs, invalid } = readRunsAudit(runsDir);
   const ratchet = loadRatchet(ratchetPath);
-  const report = evaluateGate(runs, ratchet);
+  const report = evaluateGate(runs, ratchet, invalid);
   return { report, code: report.outcome.pass ? 0 : 1 };
 }
 

@@ -63,25 +63,42 @@ function looksLikeRun(v: unknown): v is RunArtifact {
   );
 }
 
-/** Read every well-formed run artifact from `dir`; malformed files are skipped. */
-export function readRuns(dir: string): RunArtifact[] {
+/**
+ * Read every run artifact from `dir`, separating well-formed runs from `.json`
+ * files that exist but cannot be trusted (unparseable, or parseable but not a
+ * run artifact). A half-written or tampered artifact is a fact worth surfacing,
+ * not noise: the gate treats every `invalid` entry as fatal, because a corrupted
+ * measurement that silently vanishes would leave its ratchet floor unenforced.
+ */
+export function readRunsAudit(dir: string): { runs: RunArtifact[]; invalid: string[] } {
   let names: string[];
   try {
     names = readdirSync(dir);
   } catch {
-    return [];
+    return { runs: [], invalid: [] };
   }
-  const out: RunArtifact[] = [];
+  const runs: RunArtifact[] = [];
+  const invalid: string[] = [];
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
       const parsed: unknown = JSON.parse(readFileSync(join(dir, name), "utf8"));
-      if (looksLikeRun(parsed)) out.push(parsed);
+      if (looksLikeRun(parsed)) runs.push(parsed);
+      else invalid.push(name);
     } catch {
-      // A half-written or malformed artifact is ignored rather than crashing.
+      invalid.push(name);
     }
   }
-  return out;
+  return { runs, invalid };
+}
+
+/**
+ * Read every well-formed run artifact from `dir`; malformed files are skipped.
+ * This is the rendering/promotion surface (report, promote). The gate must use
+ * `readRunsAudit` instead so malformed files fail closed rather than vanish.
+ */
+export function readRuns(dir: string): RunArtifact[] {
+  return readRunsAudit(dir).runs;
 }
 
 /** The most recent artifact per model id, keyed by model, latest `generatedAt`. */

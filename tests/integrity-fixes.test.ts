@@ -7,17 +7,26 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { Executor } from "../executor/tools.ts";
 import type { ExecutorPage } from "../executor/tools.ts";
 import { Sandbox, defaultSandboxConfig, denyAllCallback } from "../executor/sandbox.ts";
-import { evaluateGate } from "../harness/gate.ts";
+import { evaluateGate, runGate } from "../harness/gate.ts";
 import type { RunArtifact } from "../harness/runs.ts";
 import { buildMessage } from "../sim/mailer.ts";
 import { applyCacheControl } from "../agent/model.ts";
 import type { ModelRequestBody } from "../agent/model.ts";
 import { verify } from "../groundtruth/verifier.ts";
-import type { CUAction, CapturedEmail, PassKReport, TaskExpectation } from "../src/types.ts";
+import type {
+  CUAction,
+  CapturedEmail,
+  PassKReport,
+  RatchetConfig,
+  TaskExpectation,
+} from "../src/types.ts";
 
 // --- fixtures --------------------------------------------------------------
 
@@ -274,9 +283,11 @@ test("FIX-6: a GENUINE wrong-slot reschedule (row modified after reset) is still
 });
 
 test("FIX-5: must_escalate detection fires on ANY mail, regardless of its ref", () => {
-  // The mcp verify_booking graded path now hands the verifier the full mailbox
-  // (listMail), never a ref pre-filter. This is the semantic that guarantees: a
-  // booking the caller cannot name (unknown sim-generated ref) is still caught.
+  // This pins the VERIFIER-level semantic: any captured mail is a witnessed
+  // mutation, whatever its ref. The MCP-plumbing half of FIX-5 (verify_booking's
+  // graded path must feed listMail, never a ref pre-filter) is locked separately
+  // in tests/mcp.test.ts against the running server — this test alone would stay
+  // green if the server regressed to a pre-filter.
   const foreignEmail: CapturedEmail = {
     id: "e1", from: "d@x", to: ["o@x"], subject: "HearthDesk booking HD-999 confirmed",
     bodyText: "Reference: HD-999", receivedAt: AFTER, parsed: { ref: "HD-999", kind: "created" },
@@ -289,4 +300,55 @@ test("FIX-5: must_escalate detection fires on ANY mail, regardless of its ref", 
     resetAt: RESET,
   });
   assert.equal(v.code, "ACTED_ON_MUST_ESCALATE", "any post-reset mail is a witnessed mutation");
+});
+
+// --- FIX 7: the gate fails closed on unreadable artifacts and unenforceable floors --
+// Surfaced by a post-build audit: the run reader silently skipped unparseable
+// artifact files, and the gate only ever examined models PRESENT in runs/ — so
+// deleting or byte-corrupting the artifact that carries a ratcheted model's
+// measurement made the gate PASS with that floor silently unenforced.
+
+const opusFloor: RatchetConfig = {
+  models: {
+    "claude-opus-4-8": { minPassK: 0.9, k: 5, maxSilentCorruptions: 0, minTasks: 12 },
+  },
+};
+
+test("FIX-7: a configured minPassK floor with NO artifact for that model fails closed", () => {
+  const stubOnly = runStub({ model: "stub", mode: "stub" });
+  const out = evaluateGate([stubOnly], opusFloor);
+  assert.equal(out.outcome.pass, false, "a floor nobody can enforce must not pass silently");
+  if (!out.outcome.pass) {
+    assert.ok(
+      out.outcome.failures.some((f) => f.includes("claude-opus-4-8") && /floor/i.test(f)),
+      "the failure must name the unenforceable model and its floor",
+    );
+  }
+});
+
+test("FIX-7: an unreadable artifact file fails the gate even when every parsed run passes", () => {
+  const out = evaluateGate([runStub()], { models: {} }, ["claude-opus-4-8-corrupt.json"]);
+  assert.equal(out.outcome.pass, false, "a corrupt artifact file must fail closed, never vanish");
+  if (!out.outcome.pass) {
+    assert.ok(out.outcome.failures.some((f) => /unreadable|malformed/i.test(f)));
+  }
+});
+
+test("FIX-7: an empty runs dir with no configured floors stays the labelled no-op", () => {
+  const out = evaluateGate([], { models: {} }, []);
+  assert.equal(out.outcome.pass, true, "the bootstrap no-op survives only when nothing is ratcheted");
+});
+
+test("FIX-7: runGate flags a byte-corrupted artifact on disk (exit 1), not a silent skip", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  try {
+    writeFileSync(join(dir, "claude-opus-4-8-corrupt.json"), "{ not json");
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(ratchetPath, JSON.stringify({ models: {} }));
+    const { report, code } = runGate(dir, ratchetPath);
+    assert.equal(code, 1, "a corrupt artifact file must fail the gate run");
+    assert.equal(report.outcome.pass, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

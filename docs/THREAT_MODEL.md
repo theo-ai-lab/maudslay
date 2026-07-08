@@ -88,7 +88,7 @@ What an attacker would want to corrupt, in descending order of damage:
 | G2 | Get a bad outcome graded OK | Two-witness outcome grading, incl. the `updatedAt` mutation signal | Fields a witness does not carry; deliberate normalization tolerance |
 | G3 | Forge a witness | Control-character sanitization at the witness boundary; witness channels unreachable from the browser | Host-level access to loopback ports (out of scope) |
 | G4 | Bypass the approval gate | Fail-closed guard resolution; origin/bounds/budget re-checks; deny-all posture | Same TOCTOU and unmarked-control residuals as G1; auto-approve mode approves everything |
-| G5 | Sneak a corrupt run past the gate | Gate recomputes silent corruptions from per-trial verdicts and fails closed | A wholly forged artifact from a repo-write attacker (out of scope) |
+| G5 | Sneak a corrupt run past the gate | Gate recomputes silent corruptions from per-trial verdicts; unreadable artifact files and artifact-less ratchet floors fail closed | A wholly forged artifact from a repo-write attacker (out of scope) |
 
 ### G1 — Commit a wrong or unauthorized booking
 
@@ -274,6 +274,12 @@ never the self-reported summary scalar**:
   ("cannot verify the silent-corruption invariant"); a malformed report
   (missing `perTask`/non-finite `passK`) where a ratchet floor is configured
   fails rather than passing on a silently-absent value.
+- **Fails closed at the file level too:** a `runs/*.json` file that cannot be
+  read as a run artifact (unparseable, or not run-shaped) fails the gate
+  instead of being silently skipped, and a ratchet floor with `minPassK > 0`
+  whose model has **no artifact at all** fails the gate — deleting or
+  byte-corrupting the measurement that carries a floor cannot un-enforce it
+  (`readRunsAudit` in [`harness/runs.ts`](../harness/runs.ts)).
 - `RatchetConfig.maxSilentCorruptions` is typed as the literal `0` — there is
   no configuration in which any silent corruption is acceptable.
 
