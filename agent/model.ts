@@ -120,7 +120,7 @@ export interface MessageParam {
 
 // --- Request body (every wire field is typed here) ---
 
-export type ApiEffort = 'low' | 'medium' | 'high' | 'max';
+export type ApiEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ModelRequestBody {
   model: string;
@@ -134,7 +134,12 @@ export interface ModelRequestBody {
   fallbacks?: Array<{ model: string }>;
 }
 
-/** `ModelConfig.effort` uses "xhigh"; the API spells the top tier "max". */
+/**
+ * Every configured tier is a real `output_config.effort` value on the CUA
+ * models — including "xhigh", the recommended tier for agentic work. Mapping
+ * it to "max" (as an earlier revision did) silently bought a more expensive,
+ * overthinking-prone tier than the caller asked for.
+ */
 export function mapEffort(effort: ModelConfig['effort']): ApiEffort {
   switch (effort) {
     case 'low':
@@ -144,7 +149,7 @@ export function mapEffort(effort: ModelConfig['effort']): ApiEffort {
     case 'high':
       return 'high';
     case 'xhigh':
-      return 'max';
+      return 'xhigh';
   }
 }
 

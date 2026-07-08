@@ -538,11 +538,14 @@ test('approval: actor override is honored', async () => {
 // request-body construction + response parsing (pure, no network)
 // --------------------------------------------------------------------------
 
-test('mapEffort: xhigh maps to the API "max" tier', () => {
+test('mapEffort: every tier passes through unchanged (xhigh IS an API tier)', () => {
   assert.equal(mapEffort('low'), 'low');
   assert.equal(mapEffort('medium'), 'medium');
   assert.equal(mapEffort('high'), 'high');
-  assert.equal(mapEffort('xhigh'), 'max');
+  // xhigh is a real output_config.effort value on the CUA models (and the
+  // recommended tier for agentic work) — mapping it to "max" silently bought
+  // a more expensive, overthinking-prone tier than the caller asked for.
+  assert.equal(mapEffort('xhigh'), 'xhigh');
 });
 
 test('buildRequestBody: opus-4-8 default surface', () => {
@@ -574,7 +577,7 @@ test('buildRequestBody: fable-5 with fallback adds the server-side fallback', ()
   const body = buildRequestBody(cfg('claude-fable-5', 'xhigh', true), 'SYS', []);
   assert.deepEqual(body.betas, [COMPUTER_USE_BETA, SERVER_SIDE_FALLBACK_BETA]);
   assert.deepEqual(body.fallbacks, [{ model: 'claude-opus-4-8' }]);
-  assert.deepEqual(body.output_config, { effort: 'max' });
+  assert.deepEqual(body.output_config, { effort: 'xhigh' });
 });
 
 test('buildRequestBody: fable-5 without fallback omits fallback surface', () => {
