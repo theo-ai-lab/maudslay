@@ -144,55 +144,222 @@ test("README has a status matrix separating measured from pending", () => {
   assert.match(md, /pending live run/i, "model capability labelled pending live run");
 });
 
-/** Extract the fenced/section block that holds the per-model results table. */
-function perModelTableBlock(md: string): string {
-  const idx = md.search(/per-model/i);
-  assert.ok(idx >= 0, "README must have a per-model results table section");
-  return md.slice(idx, idx + 1400);
+// --- The honesty guard: README result numbers are pinned to the committed ---
+// --- runs/ artifact, value-by-value — not merely to a file's existence.   ---
+
+const KNOWN_MODELS = ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"];
+
+interface BackingReport {
+  passK: number;
+  perTrialPassRate: number;
+  perTrialLowerBound95: number;
+  trialsTotal: number;
+  silentCorruptions: number;
+  escalationRate: number;
+  mode: string;
+  generatedAt: string;
 }
 
-/** Does a committed run artifact exist for this model id under runs/? */
-function hasRunArtifact(model: string): boolean {
+/**
+ * The latest committed artifact that genuinely BACKS a claim for this model: it
+ * must parse, carry per-trial verdicts, and hold finite report numbers. A
+ * garbage file that merely bears the model's name legitimizes nothing.
+ */
+function latestArtifact(model: string): BackingReport | null {
+  let names: string[];
   try {
-    return readdirSync(resolve(root, "runs")).some(
-      (f) => f.startsWith(model) && f.endsWith(".json"),
-    );
+    names = readdirSync(resolve(root, "runs"));
   } catch {
-    return false;
+    return null;
   }
+  let best: BackingReport | null = null;
+  for (const f of names) {
+    if (!f.startsWith(model) || !f.endsWith(".json")) continue;
+    let parsed: {
+      mode?: unknown;
+      generatedAt?: unknown;
+      trials?: unknown;
+      report?: Record<string, number>;
+    };
+    try {
+      parsed = JSON.parse(readFileSync(resolve(root, "runs", f), "utf8"));
+    } catch {
+      continue;
+    }
+    const r = parsed?.report;
+    if (!Array.isArray(parsed?.trials) || parsed.trials.length === 0) continue;
+    if (
+      !r ||
+      ![r.passK, r.perTrialPassRate, r.perTrialLowerBound95, r.escalationRate].every(
+        Number.isFinite,
+      ) ||
+      !Number.isFinite(r.trialsTotal) ||
+      !Number.isFinite(r.silentCorruptions)
+    ) {
+      continue;
+    }
+    const cand: BackingReport = {
+      passK: r.passK!,
+      perTrialPassRate: r.perTrialPassRate!,
+      perTrialLowerBound95: r.perTrialLowerBound95!,
+      trialsTotal: r.trialsTotal!,
+      silentCorruptions: r.silentCorruptions!,
+      escalationRate: r.escalationRate!,
+      mode: String(parsed.mode ?? ""),
+      generatedAt: String(parsed.generatedAt ?? ""),
+    };
+    if (best === null || cand.generatedAt > best.generatedAt) best = cand;
+  }
+  return best;
 }
 
-test("per-model table: a result percentage is allowed ONLY if artifact-backed; else pending", () => {
-  const md = read("README.md");
-  const block = perModelTableBlock(md);
-  assert.match(block, /fable-5/i, "model row: claude-fable-5");
-  assert.match(block, /opus-4-8/i, "model row: claude-opus-4-8");
-  assert.match(block, /sonnet-4-6/i, "model row: claude-sonnet-4-6");
-  // At least one model must still be pending (sonnet/fable are unmeasured).
-  assert.match(block, /pending live run/i, "unmeasured rows must read pending live run");
+/** Format a fraction exactly the way harness/report.ts renders cells. */
+function pctCell(x: number): string {
+  return `${(x * 100).toFixed(1)}%`;
+}
 
-  // The honesty invariant, strengthened now that a real measurement exists: a
-  // model row may carry a percentage ONLY if a committed runs/<model>-*.json
-  // artifact backs it. Otherwise the row must read "pending live run". This is
-  // exactly the "no number nobody measured" rule, enforced against the filesystem.
-  const modelRows = block
-    .split("\n")
-    .filter((l) => /fable-5|opus-4-8|sonnet-4-6/i.test(l) && l.trimStart().startsWith("|"));
-  assert.ok(modelRows.length >= 3, "expected three model rows");
-  for (const r of modelRows) {
-    const model = /opus-4-8/i.test(r)
-      ? "claude-opus-4-8"
-      : /sonnet-4-6/i.test(r)
-        ? "claude-sonnet-4-6"
-        : "claude-fable-5";
-    if (/\d+(\.\d+)?\s*%/.test(r)) {
-      assert.ok(
-        hasRunArtifact(model),
-        `row for ${model} shows a percentage but no committed runs/ artifact backs it: ${r}`,
-      );
-    } else {
-      assert.match(r, /pending live run/i, `unmeasured model row must read pending: ${r}`);
+/** Extract the per-model results table: header, separator, and data rows. */
+function perModelTableRows(md: string): string[] {
+  const lines = md.split("\n");
+  const start = lines.findIndex((l) => /^\|\s*Model\s*\|/.test(l.trim()) && /pass/i.test(l));
+  assert.ok(start >= 0, "README must have a per-model results table");
+  const rows: string[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (!line.trimStart().startsWith("|")) break;
+    rows.push(line);
+  }
+  return rows;
+}
+
+test("per-model table: every percentage cell matches the committed artifact that backs it", () => {
+  const md = read("README.md");
+  const all = perModelTableRows(md);
+  const rows = all.slice(2); // drop header + separator
+  assert.ok(rows.length >= 3, "expected at least the three wired model rows");
+  let measuredRows = 0;
+  for (const row of rows) {
+    const ids = row.match(/claude-[a-z0-9.-]+/gi) ?? [];
+    const hasPct = /\d+(\.\d+)?\s*%/.test(row);
+    if (ids.length === 0) {
+      assert.ok(!hasPct, `a row naming no model must not carry a percentage: ${row}`);
+      continue;
     }
+    const model = ids[0]!.toLowerCase();
+    assert.ok(
+      KNOWN_MODELS.includes(model),
+      `unknown model row may not carry results (no artifact can back it): ${row}`,
+    );
+    const run = latestArtifact(model);
+    if (!hasPct) {
+      assert.match(row, /pending live run/i, `unmeasured model row must read pending: ${row}`);
+      continue;
+    }
+    assert.ok(
+      run !== null,
+      `row for ${model} shows a percentage but no committed runs/ artifact backs it: ${row}`,
+    );
+    // Value-pinning: the row's numbers must BE the artifact's numbers — an
+    // existing artifact does not license a different percentage next to it.
+    const passed = Math.round(run!.perTrialPassRate * run!.trialsTotal);
+    assert.ok(
+      row.includes(pctCell(run!.passK)),
+      `row must carry the measured pass^k ${pctCell(run!.passK)}: ${row}`,
+    );
+    assert.ok(
+      row.includes(pctCell(run!.perTrialLowerBound95)),
+      `row must carry the measured floor ${pctCell(run!.perTrialLowerBound95)}: ${row}`,
+    );
+    assert.ok(
+      row.includes(`${passed}/${run!.trialsTotal}`),
+      `row must carry the measured trials ${passed}/${run!.trialsTotal}: ${row}`,
+    );
+    assert.ok(
+      row.includes(pctCell(run!.escalationRate)),
+      `row must carry the measured escalation rate ${pctCell(run!.escalationRate)}: ${row}`,
+    );
+    assert.ok(
+      new RegExp(`\\|\\s*\\*{0,2}${run!.silentCorruptions}\\*{0,2}\\s*\\|`).test(row),
+      `row must carry the measured silent-corruption count ${run!.silentCorruptions}: ${row}`,
+    );
+    measuredRows += 1;
+  }
+  if (KNOWN_MODELS.some((m) => latestArtifact(m) !== null)) {
+    assert.ok(measuredRows >= 1, "an artifact-backed model must show its measured row");
+  }
+  // At least one model must still be pending (sonnet/fable are unmeasured).
+  assert.ok(
+    rows.some((r) => /pending live run/i.test(r)),
+    "unmeasured rows must read pending live run",
+  );
+});
+
+test("README results badge carries only artifact-backed percentages", () => {
+  const md = read("README.md");
+  const live = KNOWN_MODELS.map((m) => latestArtifact(m)).filter(
+    (r): r is BackingReport => r !== null && r.mode === "live",
+  );
+  if (live.length === 0) return; // plumbing badge only — nothing measured to pin
+  const badgeLine = md
+    .split("\n")
+    .find((l) => l.includes("img.shields.io") && /pass/i.test(l));
+  assert.ok(badgeLine, "a live measurement exists, so a results badge must exist");
+  // Decode the shields.io URL-encoding first ('%25' -> '%', '%20' -> ' ') so
+  // number extraction cannot swallow encoding bytes; badge values are
+  // integer-rounded.
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(badgeLine!);
+  } catch {
+    decoded = badgeLine!;
+  }
+  const allowed = new Set(
+    live.flatMap((r) => [
+      `${Math.round(r.passK * 100)}%`,
+      `${Math.round(r.perTrialLowerBound95 * 100)}%`,
+      `${Math.round(r.perTrialPassRate * 100)}%`,
+    ]),
+  );
+  const claimed = decoded.match(/\d+(?:\.\d+)?%/g) ?? [];
+  assert.ok(claimed.length > 0, "the results badge must carry percentages");
+  for (const c of claimed) {
+    assert.ok(allowed.has(c), `badge claims ${c}, which no committed artifact backs`);
+  }
+  assert.ok(
+    live.some((r) => decoded.includes(`${r.silentCorruptions} corruption`)),
+    "badge must carry the measured silent-corruption count",
+  );
+});
+
+test("README prose result claims (floor, n/n trials, corruption counts) are artifact-backed", () => {
+  const md = read("README.md");
+  const live = KNOWN_MODELS.map((m) => latestArtifact(m)).filter(
+    (r): r is BackingReport => r !== null && r.mode === "live",
+  );
+  if (live.length === 0) return; // nothing measured, nothing to pin
+  // Decimal "NN.N% floor" / "floor NN.N%" claims anywhere in the README must be
+  // a measured Clopper–Pearson floor. (Integer forms like the "95%" confidence
+  // level are deliberately out of scope; the badge and table tests pin those.)
+  const allowedFloor = new Set(live.map((r) => pctCell(r.perTrialLowerBound95)));
+  for (const m of md.matchAll(/(\d+\.\d+%)\s+floor|floor\s+(\d+\.\d+%)/gi)) {
+    const val = (m[1] ?? m[2])!;
+    assert.ok(allowedFloor.has(val), `floor claim ${val} is not backed by any committed artifact`);
+  }
+  const allowedFrac = new Set(
+    live.map((r) => `${Math.round(r.perTrialPassRate * r.trialsTotal)}/${r.trialsTotal}`),
+  );
+  for (const m of md.matchAll(/\((\d+\/\d+)(?:\s+trials)?\)/g)) {
+    assert.ok(
+      allowedFrac.has(m[1]!),
+      `trial fraction (${m[1]}) is not backed by any committed artifact`,
+    );
+  }
+  const allowedCorr = new Set(live.map((r) => String(r.silentCorruptions)));
+  for (const m of md.matchAll(/(\d+)\s+(?:silent\s+)?corruptions/gi)) {
+    assert.ok(
+      allowedCorr.has(m[1]!),
+      `corruption count "${m[1]} corruptions" is not backed by any committed artifact`,
+    );
   }
 });
 
