@@ -119,6 +119,7 @@ test("gate job runs on push/PR only and is key-free", () => {
 test("gate job runs the full pipeline in contract order", () => {
   assertOrdered(runCommands(gateSection), [
     "npm ci",
+    "npm audit --omit=dev --audit-level=high",
     "npx playwright install --with-deps chromium",
     "npm run typecheck",
     "npm test",
