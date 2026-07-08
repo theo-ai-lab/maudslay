@@ -10,9 +10,12 @@
  *     recorded floor, task coverage may not shrink below `minTasks`, and the run
  *     must have used at least the configured k.
  *  3. FAIL-CLOSED INPUTS: an artifact file that exists but cannot be read as a
- *     run, and a configured floor (minPassK > 0) with no artifact to enforce it
- *     against, both fail the gate. Deleting or corrupting a measurement must
- *     never silently un-enforce the floor it carries.
+ *     run; a ratchet config that exists but is corrupt or carries mistyped
+ *     floor fields; a configured floor (minPassK > 0) with no artifact, with a
+ *     stub-mode artifact, with tasks carrying fewer than k trial records, or
+ *     with a report.passK that disagrees with the trial-derived pass^k — all
+ *     fail the gate. Deleting, corrupting, or inflating a measurement (or the
+ *     config that carries its floor) must never silently un-enforce it.
  *
  * With no run artifacts at all — and nothing ratcheted — the gate is a labelled
  * no-op (exit 0): the plumbing is wired but nothing has been measured yet.
@@ -24,7 +27,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import type { GateOutcome, RatchetConfig } from "../src/types.ts";
-import { isSilentCorruption } from "../src/types.ts";
+import { isSilentCorruption, isSuccess } from "../src/types.ts";
 import { readRunsAudit, latestPerModel, type RunArtifact } from "./runs.ts";
 
 export interface GateReport {
@@ -33,14 +36,28 @@ export interface GateReport {
   notes: string[];
 }
 
-function parseRatchet(raw: unknown): RatchetConfig {
+function parseRatchet(raw: unknown): { config: RatchetConfig; problems: string[] } {
   const models: RatchetConfig["models"] = {};
+  const problems: string[] = [];
   if (raw && typeof raw === "object") {
     const m = (raw as { models?: unknown }).models;
     if (m && typeof m === "object") {
       for (const [id, cfg] of Object.entries(m as Record<string, unknown>)) {
-        if (!cfg || typeof cfg !== "object") continue;
+        if (!cfg || typeof cfg !== "object") {
+          problems.push(`ratchet config: entry for ${id} is not an object — failing closed`);
+          continue;
+        }
         const c = cfg as Record<string, unknown>;
+        // A field that is PRESENT but not a finite number is a floor being
+        // erased without signal (e.g. minPassK: "0.9" silently coercing to 0).
+        // Absent fields keep their documented defaults.
+        for (const field of ["minPassK", "k", "minTasks"] as const) {
+          if (field in c && !Number.isFinite(c[field])) {
+            problems.push(
+              `ratchet config: ${id}.${field} is present but not a number — a floor must never silently coerce to 0; failing closed`,
+            );
+          }
+        }
         models[id] = {
           minPassK: typeof c.minPassK === "number" ? c.minPassK : 0,
           k: typeof c.k === "number" ? c.k : 1,
@@ -50,15 +67,35 @@ function parseRatchet(raw: unknown): RatchetConfig {
       }
     }
   }
-  return { models };
+  return { config: { models }, problems };
+}
+
+/**
+ * Read the ratchet config, separating the bootstrap case from corruption. A
+ * MISSING file made no promises (fork with no floors — the gate stays a
+ * labelled no-op); a file that EXISTS but cannot be parsed, or that carries
+ * mistyped floor fields, is the same attack surface as a corrupted run
+ * artifact and must fail the gate rather than silently dropping every floor.
+ */
+export function loadRatchetAudit(path: string): { config: RatchetConfig; problems: string[] } {
+  let raw: string;
+  try {
+    raw = readFileSync(path, "utf8");
+  } catch {
+    return { config: { models: {} }, problems: [] };
+  }
+  try {
+    return parseRatchet(JSON.parse(raw));
+  } catch {
+    return {
+      config: { models: {} },
+      problems: [`ratchet config at ${path} is unreadable or malformed JSON — failing closed`],
+    };
+  }
 }
 
 export function loadRatchet(path: string): RatchetConfig {
-  try {
-    return parseRatchet(JSON.parse(readFileSync(path, "utf8")));
-  } catch {
-    return { models: {} };
-  }
+  return loadRatchetAudit(path).config;
 }
 
 /**
@@ -72,6 +109,7 @@ export function evaluateGate(
   runs: RunArtifact[],
   ratchet: RatchetConfig,
   invalidFiles: string[] = [],
+  configProblems: string[] = [],
 ): GateReport {
   const latest = latestPerModel(runs);
   const failures: string[] = [];
@@ -82,13 +120,19 @@ export function evaluateGate(
   // gate with its floor unenforced.
   for (const name of invalidFiles) {
     failures.push(
-      `runs/${name}: unreadable or malformed run artifact — failing closed; delete or regenerate it`,
+      `${name}: unreadable or malformed run artifact — failing closed; delete or regenerate it`,
     );
   }
 
-  // FAIL-CLOSED: a configured floor is a promise that a measurement exists. If
-  // no artifact for that model is present, the floor cannot be enforced and the
-  // gate must not pretend it was.
+  // FAIL-CLOSED: the ratchet config is the floors' carrier and gets the same
+  // treatment as the artifacts it governs (see loadRatchetAudit).
+  failures.push(...configProblems);
+
+  // FAIL-CLOSED: a measured pass^k floor (minPassK > 0) is a promise that a
+  // live measurement exists. If no artifact for that model is present, the
+  // floor cannot be enforced and the gate must not pretend it was. (Entries
+  // with minPassK = 0 are unmeasured models awaiting their first live run —
+  // requiring artifacts for them would break the documented bootstrap.)
   for (const [model, floor] of Object.entries(ratchet.models)) {
     if (floor.minPassK > 0 && !latest.has(model)) {
       failures.push(
@@ -157,10 +201,48 @@ export function evaluateGate(
     if (run.k < floor.k) {
       failures.push(`${model}: run used k=${run.k} but the floor requires k=${floor.k}`);
     }
-    if (floor.minPassK > 0 && passK < floor.minPassK) {
-      failures.push(
-        `${model}: pass^${floor.k}=${passK.toFixed(4)} dropped below floor ${floor.minPassK}`,
-      );
+    if (floor.minPassK > 0) {
+      // A capability floor can only be satisfied by a LIVE measurement — a
+      // golden-replay plumbing run is deterministic by construction and must
+      // never stand in for model capability.
+      if (run.mode !== "live") {
+        failures.push(
+          `${model}: ratchet floor minPassK=${floor.minPassK} requires a live run artifact, ` +
+            `but the latest artifact is mode=${run.mode} (plumbing replay) — failing closed`,
+        );
+        continue;
+      }
+      // The RATCHET invariant gets the same treatment as the HARD invariant:
+      // recompute pass^k from the AUTHORITATIVE per-trial verdicts and
+      // cross-check the self-reported summary, so deleting failing trial
+      // records (or inflating report.passK) cannot satisfy a floor.
+      const byTask = new Map<string, boolean[]>();
+      for (const t of run.trials) {
+        const arr = byTask.get(t.taskId) ?? [];
+        arr.push(isSuccess(t.verdict));
+        byTask.set(t.taskId, arr);
+      }
+      const underK = [...byTask.entries()].filter(([, arr]) => arr.length < run.k);
+      if (underK.length > 0) {
+        failures.push(
+          `${model}: ${underK.length} task(s) carry fewer than k=${run.k} trial records — ` +
+            `pass^k cannot be verified from the trials; failing closed`,
+        );
+      }
+      const tasks = [...byTask.values()];
+      const derived =
+        tasks.length === 0 ? 0 : tasks.filter((arr) => arr.every(Boolean)).length / tasks.length;
+      if (Math.abs(derived - passK) > 1e-9) {
+        failures.push(
+          `${model}: artifact integrity — report.passK=${passK.toFixed(4)} disagrees with ` +
+            `trial-derived pass^k ${derived.toFixed(4)}`,
+        );
+      }
+      if (passK < floor.minPassK) {
+        failures.push(
+          `${model}: pass^${floor.k}=${passK.toFixed(4)} dropped below floor ${floor.minPassK}`,
+        );
+      }
     }
   }
 
@@ -182,8 +264,8 @@ export function evaluateGate(
 
 export function runGate(runsDir: string, ratchetPath: string): { report: GateReport; code: number } {
   const { runs, invalid } = readRunsAudit(runsDir);
-  const ratchet = loadRatchet(ratchetPath);
-  const report = evaluateGate(runs, ratchet, invalid);
+  const { config, problems } = loadRatchetAudit(ratchetPath);
+  const report = evaluateGate(runs, config, invalid, problems);
   return { report, code: report.outcome.pass ? 0 : 1 };
 }
 

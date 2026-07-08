@@ -29,8 +29,39 @@ artifact presence for every ratchet entry regardless of floor (fable/sonnet sit
 at `minPassK: 0` until measured — requiring artifacts for them would break the
 bootstrap and contradict "a floor is never a number nobody measured").
 
+## Second round (same audit, adversarial re-verification)
+
+Re-running the attack class against the first fix surfaced four more fail-open
+paths, all closed the same way:
+
+- **Stub-mode bypass:** a hand-crafted `mode: "stub"` artifact naming a floored
+  model satisfied the floor (golden replay is trivially 100%). A `minPassK > 0`
+  floor now requires `mode: "live"`.
+- **Self-reported ratchet numbers:** the pass^k floor trusted `report.passK`
+  and `run.k`; deleting failing trial records kept a rosy summary enforceable.
+  The gate now recomputes pass^k from the per-trial verdicts (the same
+  authority the silent-corruption invariant uses), fails on disagreement, and
+  fails when any task carries fewer than `k` trial records.
+- **The ratchet file itself:** `loadRatchet` swallowed every error into
+  `{ models: {} }`, so corrupting ratchet.json (or mistyping `minPassK` as a
+  string, which coerced to 0) silently erased every floor. `loadRatchetAudit`
+  now fails closed on an existing-but-unreadable config and on present-but-
+  non-numeric floor fields. A MISSING ratchet file stays the bootstrap no-op —
+  a fork that never promised floors.
+- **Test confound:** the on-disk FIX-7 test kept ratchet.json inside the runs
+  dir, where it tripped the not-run-shaped branch and masked the JSON.parse
+  branch. The fixture now separates them.
+
+Deliberately NOT enforced: artifact presence for `minTasks`/`k`-only entries
+(`minPassK: 0`) — sonnet/fable ship exactly that shape while unmeasured, and
+the bootstrap depends on it. Deleting or zeroing ratchet.json in a PR remains
+visible in review (config diff), unlike silent corruption; the residual
+attacker is the same repo-write attacker as G5's forged-artifact case.
+
 ## Enforcement
 
 Regression-locked as FIX-7 in `tests/integrity-fixes.test.ts` (unit + on-disk
-`runGate` case). Threat model G5 updated: the residual shrinks to a wholly
-forged **well-formed** artifact from a repo-write attacker (out of scope).
+`runGate` cases for corrupt artifact, corrupt ratchet, mistyped floor, missing
+ratchet, stub-mode floor, under-k trials, and passK disagreement). Threat model
+G5 updated: the residual shrinks to a wholly forged **well-formed live**
+artifact from a repo-write attacker (out of scope).

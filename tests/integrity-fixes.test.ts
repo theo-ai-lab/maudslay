@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,7 +15,7 @@ import { Executor } from "../executor/tools.ts";
 import type { ExecutorPage } from "../executor/tools.ts";
 import { Sandbox, defaultSandboxConfig, denyAllCallback } from "../executor/sandbox.ts";
 import { evaluateGate, runGate } from "../harness/gate.ts";
-import type { RunArtifact } from "../harness/runs.ts";
+import type { RunArtifact, RunTrialRecord } from "../harness/runs.ts";
 import { buildMessage } from "../sim/mailer.ts";
 import { applyCacheControl } from "../agent/model.ts";
 import type { ModelRequestBody } from "../agent/model.ts";
@@ -340,14 +340,149 @@ test("FIX-7: an empty runs dir with no configured floors stays the labelled no-o
 });
 
 test("FIX-7: runGate flags a byte-corrupted artifact on disk (exit 1), not a silent skip", () => {
+  // The ratchet file lives OUTSIDE the runs dir: the corrupt artifact must be
+  // the ONLY invalid input, so this test pins the JSON.parse fail-closed
+  // branch itself (a ratchet.json inside runs/ would trip the not-run-shaped
+  // branch and mask a regression of the parse branch).
   const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
   try {
-    writeFileSync(join(dir, "claude-opus-4-8-corrupt.json"), "{ not json");
+    const runsDir = join(dir, "runs");
+    mkdirSync(runsDir);
+    writeFileSync(join(runsDir, "claude-opus-4-8-corrupt.json"), "{ not json");
     const ratchetPath = join(dir, "ratchet.json");
     writeFileSync(ratchetPath, JSON.stringify({ models: {} }));
-    const { report, code } = runGate(dir, ratchetPath);
+    const { report, code } = runGate(runsDir, ratchetPath);
     assert.equal(code, 1, "a corrupt artifact file must fail the gate run");
     assert.equal(report.outcome.pass, false);
+    if (!report.outcome.pass) {
+      assert.ok(
+        report.outcome.failures.some((f) => /unreadable|malformed/.test(f)),
+        "the failure must name the unreadable artifact",
+      );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A ratchet-floored artifact that would pass every existing check, with knobs
+// for the specific integrity property each FIX-7 test attacks.
+function flooredRun(
+  mode: "live" | "stub",
+  opts: { trialsPerTask?: number; failTasks?: number; reportPassK?: number } = {},
+): RunArtifact {
+  const trialsPerTask = opts.trialsPerTask ?? 5;
+  const failTasks = opts.failTasks ?? 0;
+  const taskIds = Array.from({ length: 12 }, (_, i) => `t${i}`);
+  const trials: RunTrialRecord[] = [];
+  taskIds.forEach((taskId, ti) => {
+    for (let j = 0; j < trialsPerTask; j++) {
+      trials.push({
+        taskId,
+        trialIndex: j,
+        verdict: ti < failTasks && j === 0 ? "MISSING" : "OK",
+        steps: 1,
+        durationMs: 1,
+        trajectoryPath: "x",
+      });
+    }
+  });
+  const derivedPassK = (12 - failTasks) / 12;
+  return runStub({
+    model: "claude-opus-4-8",
+    mode,
+    k: 5,
+    report: reportStub({
+      model: "claude-opus-4-8",
+      k: 5,
+      passK: opts.reportPassK ?? derivedPassK,
+      perTask: taskIds.map((taskId, ti) => ({ taskId, trials: [], passAllK: ti >= failTasks })),
+      trialsTotal: trials.length,
+      silentCorruptions: 0,
+    }),
+    trials,
+  });
+}
+
+test("FIX-7: a stub-mode artifact cannot satisfy a live minPassK floor", () => {
+  const out = evaluateGate([flooredRun("stub")], opusFloor);
+  assert.equal(out.outcome.pass, false, "a golden-replay plumbing run is not a capability measurement");
+  if (!out.outcome.pass) {
+    assert.ok(
+      out.outcome.failures.some((f) => /live/i.test(f) && /stub/i.test(f)),
+      "the failure must name the mode mismatch",
+    );
+  }
+});
+
+test("FIX-7: a live artifact whose tasks carry fewer than k trials fails the floor", () => {
+  // 12 tasks x 1 trial each, self-declared k=5 and a rosy report.
+  const out = evaluateGate([flooredRun("live", { trialsPerTask: 1 })], opusFloor);
+  assert.equal(out.outcome.pass, false, "pass^k at k=5 cannot be verified from 1 trial per task");
+});
+
+test("FIX-7: report.passK disagreeing with trial-derived pass^k fails the gate", () => {
+  // 6 of 12 tasks carry a failing trial (derived pass^k = 0.5) but the summary claims 1.0.
+  const out = evaluateGate([flooredRun("live", { failTasks: 6, reportPassK: 1 })], opusFloor);
+  assert.equal(out.outcome.pass, false, "the ratchet must rest on verdicts, not the self-reported scalar");
+  if (!out.outcome.pass) {
+    assert.ok(out.outcome.failures.some((f) => /integrity|disagrees/i.test(f)));
+  }
+});
+
+test("FIX-7: an honest live floored run still passes all integrity cross-checks", () => {
+  const out = evaluateGate([flooredRun("live")], opusFloor);
+  assert.equal(out.outcome.pass, true, "a consistent live measurement within its floor must pass");
+});
+
+test("FIX-7: a corrupt ratchet.json on disk fails the gate, not a silent no-floor pass", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  try {
+    const runsDir = join(dir, "runs");
+    mkdirSync(runsDir);
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(ratchetPath, "{ not json");
+    const { report, code } = runGate(runsDir, ratchetPath);
+    assert.equal(code, 1, "an unreadable ratchet config must never silently drop every floor");
+    assert.equal(report.outcome.pass, false);
+    if (!report.outcome.pass) {
+      assert.ok(report.outcome.failures.some((f) => /ratchet/i.test(f)));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("FIX-7: a mistyped minPassK in ratchet.json fails instead of silently zeroing the floor", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  try {
+    const runsDir = join(dir, "runs");
+    mkdirSync(runsDir);
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(
+      ratchetPath,
+      JSON.stringify({
+        models: {
+          "claude-opus-4-8": { minPassK: "0.9", k: 5, maxSilentCorruptions: 0, minTasks: 12 },
+        },
+      }),
+    );
+    const { report, code } = runGate(runsDir, ratchetPath);
+    assert.equal(code, 1, "a floor that silently coerces to 0 is a floor erased without signal");
+    assert.equal(report.outcome.pass, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("FIX-7: a MISSING ratchet.json stays the bootstrap no-op (nothing promised, nothing enforced)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  try {
+    const runsDir = join(dir, "runs");
+    mkdirSync(runsDir);
+    const { report, code } = runGate(runsDir, join(dir, "ratchet.json"));
+    assert.equal(code, 0, "a fork with no ratchet file has made no promises — labelled no-op");
+    assert.equal(report.outcome.pass, true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

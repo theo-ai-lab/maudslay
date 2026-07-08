@@ -280,6 +280,15 @@ never the self-reported summary scalar**:
   whose model has **no artifact at all** fails the gate — deleting or
   byte-corrupting the measurement that carries a floor cannot un-enforce it
   (`readRunsAudit` in [`harness/runs.ts`](../harness/runs.ts)).
+- **Fails closed on the floor's carrier and its substance:** a ratchet.json
+  that exists but is corrupt, or carries a mistyped floor field (a floor
+  silently coercing to 0 is a floor erased without signal), fails the gate
+  (`loadRatchetAudit`); a missing ratchet file is the bootstrap no-op. A
+  `minPassK > 0` floor additionally requires the backing artifact to be
+  `mode: "live"` (stub replay is trivially 100%), requires every task to carry
+  at least `k` trial records, and recomputes pass^k from the per-trial
+  verdicts — `report.passK` is cross-checked, never trusted
+  ([D5](decisions/D5-gate-fail-closed-inputs.md)).
 - `RatchetConfig.maxSilentCorruptions` is typed as the literal `0` — there is
   no configuration in which any silent corruption is acceptable.
 
