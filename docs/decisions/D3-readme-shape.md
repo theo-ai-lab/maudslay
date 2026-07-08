@@ -22,8 +22,8 @@ The README's hero is **the gate**, not a demo GIF. Structure:
 
 3. **The wedge, stated precisely (comparison table).** Columns: outcome-graded?
    independent ground-truth channel? pass^k? merge-blocking CI? computer-use?
-   Rows: Maudslay | [ASSERT](link) (policy-driven LLM-judge over traces) |
-   [EvalView](link) (trajectory-snapshot diff). Maudslay is the only row with
+   Rows: Maudslay | [ASSERT](https://github.com/responsibleai/ASSERT) (policy-driven LLM-judge over traces) |
+   [EvalView](https://github.com/hidai25/eval-view) (trajectory-snapshot diff). Maudslay is the only row with
    all five. NO "nobody does evals" claim — it would be false; the table is the
    claim.
 

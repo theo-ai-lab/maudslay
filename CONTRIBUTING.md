@@ -149,7 +149,7 @@ measured value — never past it, and never by hand to a number nobody measured.
   suite.
 - **Secrets.** `ANTHROPIC_API_KEY` is read from the environment, never
   committed; `.env` is gitignored. Everything under `var/` is gitignored;
-  committed evidence (`runs/`, `goldens/`) carries verdicts and screenshot
+  committed evidence (`runs/`) carries verdicts and screenshot
   hashes, not raw screenshots or captured mail.
 
 ## Security-sensitive changes

@@ -188,7 +188,7 @@ the gate — and most of it does not know or care what the app under test does.
 | [`mcp/`](../mcp) — ground truth over MCP | **Mostly stays** — it is a thin surface over the verifier; its tool payloads follow your expectation types. |
 | [`sim/`](../sim) — the app under test | **Replaced** by your no-API app (or a resettable staging instance of a real one). |
 | [`groundtruth/`](../groundtruth) — witness capture, parsing, verifier | **Rewritten.** This is the real design work (below). |
-| [`harness/tasks.ts`](../harness/tasks.ts) + [`goldens/`](../goldens) | **Rewritten** — your suite, your oracle driver, your goldens. |
+| [`harness/tasks.ts`](../harness/tasks.ts) + `goldens/` (regenerated, gitignored) | **Rewritten** — your suite, your oracle driver, your goldens. |
 | `TaskExpectation` / `ExpectedBooking` in [`src/types.ts`](../src/types.ts) | **Domain-specific.** Change the types first, then the consumers — this file is the single source of truth. |
 
 ### The two-witness question — the actual design work

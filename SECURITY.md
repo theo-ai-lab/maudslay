@@ -133,8 +133,8 @@ Being explicit about the boundary is part of the security posture. The gate does
 - `ANTHROPIC_API_KEY` is required only for live runs. It is read from the
   environment, never committed, and is the sole reason the live-run CI job is
   manual-dispatch and key-gated. `.env` files are gitignored.
-- All runtime artifacts (`var/`) are gitignored. Committed evidence (`runs/`,
-  `goldens/`) contains verdicts, trajectories, and screenshot **hashes** — not
+- All runtime artifacts (`var/`) are gitignored. Committed evidence (`runs/`)
+  contains per-trial verdicts and screenshot **hashes** — not
   raw screenshots or captured mail.
 
 ## Reporting

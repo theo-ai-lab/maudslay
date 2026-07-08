@@ -28,8 +28,8 @@ strings live as constants in [`agent/model.ts`](../agent/model.ts):
   `done {summary}`. Trial termination is a tool call, never a text convention
   parsed out of prose (D4 offered both options; the tool approach was chosen).
 - **No `temperature` / `top_p` / `top_k`, no `thinking`.** Effort is carried
-  only via `output_config: { effort }`; `ModelConfig`'s `"xhigh"` maps to the
-  API's `"max"` (`mapEffort`). Omitting `thinking` everywhere means the
+  only via `output_config: { effort }`; every `ModelConfig` tier passes through
+  unchanged (`mapEffort` — `"xhigh"` is a real API tier). Omitting `thinking` everywhere means the
   reconstructed assistant turn never has to preserve thinking blocks — the
   transcript echo in `parseResponse` is lossless by construction.
 

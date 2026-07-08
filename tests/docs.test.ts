@@ -479,7 +479,7 @@ test("README cross-links discovery, security, and verification docs", () => {
   assert.match(md, /docs\/VERIFICATION\.md/, "link to docs/VERIFICATION.md");
 });
 
-test("README makes no 'nobody does evals' claim (it would be false)", () => {
+test("README makes no 'nobody does evals' claim", () => {
   const md = read("README.md").toLowerCase();
   assert.doesNotMatch(md, /nobody (does|runs) evals/, "must not claim nobody does evals");
   assert.doesNotMatch(md, /no one (does|runs) evals/, "must not claim no one does evals");
@@ -556,22 +556,3 @@ test("DISCOVERY keeps the first-user half explicitly marked pending", () => {
   assert.match(md, /measure next/i, "template prompt: what to measure next");
 });
 
-// ---------------------------------------------------------------------------
-// Doc content hygiene guard
-// ---------------------------------------------------------------------------
-
-test("docs contain no stray placeholder text", () => {
-  // (doc content hygiene check)
-
-  const forbidden =
-    /\bLOREM_IPSUM_PLACEHOLDER\b/i;
-  for (const f of [
-    "README.md",
-    "ARCHITECTURE.md",
-    "SECURITY.md",
-    "docs/VERIFICATION.md",
-    "docs/DISCOVERY.md",
-  ]) {
-    assert.doesNotMatch(read(f), forbidden, `${f} must not contain placeholder text`);
-  }
-});

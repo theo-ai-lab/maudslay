@@ -80,6 +80,12 @@ merge-blocking + computer-use.**
 
 ## How the gate works (the two-witness design)
 
+![The HearthDesk sim's irreversible confirm step — the surface the agent under test drives](docs/assets/hearthdesk-reschedule.png)
+
+*What the agent sees: the confirm step of a reschedule in the HearthDesk sim.
+The gate never trusts the agent's claim that this succeeded — it reads the
+confirmation email and the backend record instead.*
+
 The agent under test only ever sees **pixels** and only ever emits
 **computer-use actions**. Verification only ever reads two channels the agent
 does not author. Nothing lets a verifier read the screen, by construction.

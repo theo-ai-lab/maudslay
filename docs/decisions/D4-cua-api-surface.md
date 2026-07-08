@@ -1,7 +1,7 @@
 # D4 — Computer-use API surface (ground-truthed from live docs, 2026-07)
 
-Pinned from Anthropic's public computer-use tool documentation. Use these EXACT
-strings in `agent/model.ts`. Variants are rejected.
+Pinned from Anthropic's public computer-use tool documentation. These exact
+strings are constants in `agent/model.ts`; variants are rejected.
 
 ## Tool definition (model-facing)
 
@@ -19,7 +19,7 @@ strings in `agent/model.ts`. Variants are rejected.
 - **Model support (from the doc's beta note):** Sonnet 5, **Opus 4.8**, Opus 4.7,
   Opus 4.6, Sonnet 4.6, Opus 4.5. **Claude Fable 5 is NOT listed** for the
   computer-use tool. Therefore:
-  - **Default CUA model = `claude-opus-4-8`** (top listed, top listed).
+  - **Default CUA model = `claude-opus-4-8`** (top listed).
   - `claude-fable-5` is selectable but **flagged unverified for computer use** —
     `model.ts` must not silently assume it works; if configured, attempt and
     surface any 400 clearly (do not claim support in docs).

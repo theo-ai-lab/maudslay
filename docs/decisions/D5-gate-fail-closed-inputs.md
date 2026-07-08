@@ -61,7 +61,7 @@ the NEWEST artifact of a multi-artifact model rolls back to the older pass —
 the gate has no ledger of what once existed; that deletion, like zeroing
 ratchet.json, is a repo-write attack that stays visible in the PR diff. The
 residual attacker is the same repo-write attacker as G5's forged-artifact
-case. A third round (independent review round) added: unreadable-vs-missing
+case. A third, independent review round added: unreadable-vs-missing
 distinction for both the runs/ directory and ratchet.json (EACCES fails
 closed, ENOENT bootstraps).
 

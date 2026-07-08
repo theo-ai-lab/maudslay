@@ -13,7 +13,7 @@ import { appendFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
 import type { CUAction, Observation, ModelConfig } from '../src/types.ts';
 
-// --- Wire beta identifiers and models (exact strings; pinned per D4) ---
+// --- Wire beta identifiers and models (exact strings, pinned per D4) ---
 
 export const COMPUTER_USE_BETA = 'computer-use-2025-11-24';
 export const SERVER_SIDE_FALLBACK_BETA = 'server-side-fallback-2026-06-01';
