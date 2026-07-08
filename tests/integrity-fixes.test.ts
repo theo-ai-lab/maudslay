@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -486,4 +486,52 @@ test("FIX-7: a MISSING ratchet.json stays the bootstrap no-op (nothing promised,
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("FIX-7: an UNREADABLE runs directory fails closed; a missing one stays the bootstrap no-op", (t) => {
+  if (typeof process.getuid === "function" && process.getuid() === 0) {
+    t.skip("permission bits do not bind root");
+    return;
+  }
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  const runsDir = join(dir, "runs");
+  try {
+    // Missing directory = fresh fork, nothing measured yet — labelled no-op.
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(ratchetPath, JSON.stringify({ models: {} }));
+    const missing = runGate(join(dir, "no-such-dir"), ratchetPath);
+    assert.equal(missing.code, 0, "a missing runs dir is the bootstrap case");
+
+    // Unreadable directory = committed measurements exist but cannot be seen —
+    // every artifact vanishing at once must not read as "nothing measured".
+    mkdirSync(runsDir, { mode: 0o000 });
+    const unreadable = runGate(runsDir, ratchetPath);
+    assert.equal(unreadable.code, 1, "an unreadable runs dir must fail closed, not no-op");
+    assert.equal(unreadable.report.outcome.pass, false);
+  } finally {
+    try {
+      chmodSync(runsDir, 0o755); // restore perms so cleanup can traverse
+    } catch {
+      /* dir may not exist */
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("FIX-7: a ratchet entry with no artifact is VISIBLE as a note even at minPassK=0", () => {
+  // sonnet/fable ship as minPassK:0 entries awaiting their first live run —
+  // requiring artifacts for them would break the bootstrap, but their absence
+  // must at least be visible in the gate output so deleting a measurement is
+  // never fully silent.
+  const zeroFloor: RatchetConfig = {
+    models: {
+      "claude-sonnet-4-6": { minPassK: 0, k: 5, maxSilentCorruptions: 0, minTasks: 12 },
+    },
+  };
+  const out = evaluateGate([runStub()], zeroFloor);
+  assert.equal(out.outcome.pass, true, "a dormant entry does not fail the bootstrap");
+  assert.ok(
+    out.notes.some((n) => n.includes("claude-sonnet-4-6") && /dormant|unmeasured|no run artifact/i.test(n)),
+    `the dormant entry must surface as a note; got: ${JSON.stringify(out.notes)}`,
+  );
 });

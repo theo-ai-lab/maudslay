@@ -70,12 +70,29 @@ function looksLikeRun(v: unknown): v is RunArtifact {
  * not noise: the gate treats every `invalid` entry as fatal, because a corrupted
  * measurement that silently vanishes would leave its ratchet floor unenforced.
  */
-export function readRunsAudit(dir: string): { runs: RunArtifact[]; invalid: string[] } {
+export function readRunsAudit(dir: string): {
+  runs: RunArtifact[];
+  invalid: string[];
+  problems: string[];
+} {
   let names: string[];
   try {
     names = readdirSync(dir);
-  } catch {
-    return { runs: [], invalid: [] };
+  } catch (e) {
+    // A MISSING directory is the bootstrap case (nothing measured yet). Any
+    // other readdir failure (permissions, I/O) means committed measurements
+    // exist but cannot be seen — every artifact vanishing at once must never
+    // read as "nothing measured".
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return { runs: [], invalid: [], problems: [] };
+    }
+    return {
+      runs: [],
+      invalid: [],
+      problems: [
+        `runs directory at ${dir} exists but is unreadable (${(e as NodeJS.ErrnoException).code ?? "error"}) — failing closed`,
+      ],
+    };
   }
   const runs: RunArtifact[] = [];
   const invalid: string[] = [];
@@ -89,7 +106,7 @@ export function readRunsAudit(dir: string): { runs: RunArtifact[]; invalid: stri
       invalid.push(name);
     }
   }
-  return { runs, invalid };
+  return { runs, invalid, problems: [] };
 }
 
 /**

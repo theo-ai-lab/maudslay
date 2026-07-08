@@ -81,8 +81,18 @@ export function loadRatchetAudit(path: string): { config: RatchetConfig; problem
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
-  } catch {
-    return { config: { models: {} }, problems: [] };
+  } catch (e) {
+    // Missing file = bootstrap (no promises). Any other read failure means a
+    // config EXISTS but cannot be seen — fail closed like a corrupt one.
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return { config: { models: {} }, problems: [] };
+    }
+    return {
+      config: { models: {} },
+      problems: [
+        `ratchet config at ${path} exists but is unreadable (${(e as NodeJS.ErrnoException).code ?? "error"}) — failing closed`,
+      ],
+    };
   }
   try {
     return parseRatchet(JSON.parse(raw));
@@ -134,11 +144,20 @@ export function evaluateGate(
   // with minPassK = 0 are unmeasured models awaiting their first live run —
   // requiring artifacts for them would break the documented bootstrap.)
   for (const [model, floor] of Object.entries(ratchet.models)) {
-    if (floor.minPassK > 0 && !latest.has(model)) {
-      failures.push(
-        `${model}: ratchet floor minPassK=${floor.minPassK} is configured but no run artifact ` +
-          `is present — the floor cannot be enforced; failing closed`,
-      );
+    if (!latest.has(model)) {
+      if (floor.minPassK > 0) {
+        failures.push(
+          `${model}: ratchet floor minPassK=${floor.minPassK} is configured but no run artifact ` +
+            `is present — the floor cannot be enforced; failing closed`,
+        );
+      } else {
+        // A dormant entry (unmeasured model awaiting its first live run) is
+        // legitimate — but its absence must be VISIBLE, so deleting a
+        // measurement for a minPassK=0 model is never fully silent.
+        notes.push(
+          `${model}: ratchet entry configured but no run artifact present (unmeasured — floors dormant)`,
+        );
+      }
     }
   }
 
@@ -263,9 +282,9 @@ export function evaluateGate(
 // --- CLI -------------------------------------------------------------------
 
 export function runGate(runsDir: string, ratchetPath: string): { report: GateReport; code: number } {
-  const { runs, invalid } = readRunsAudit(runsDir);
-  const { config, problems } = loadRatchetAudit(ratchetPath);
-  const report = evaluateGate(runs, config, invalid, problems);
+  const { runs, invalid, problems: runProblems } = readRunsAudit(runsDir);
+  const { config, problems: configProblems } = loadRatchetAudit(ratchetPath);
+  const report = evaluateGate(runs, config, invalid, [...runProblems, ...configProblems]);
   return { report, code: report.outcome.pass ? 0 : 1 };
 }
 

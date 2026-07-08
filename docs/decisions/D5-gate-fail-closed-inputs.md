@@ -54,9 +54,16 @@ paths, all closed the same way:
 
 Deliberately NOT enforced: artifact presence for `minTasks`/`k`-only entries
 (`minPassK: 0`) — sonnet/fable ship exactly that shape while unmeasured, and
-the bootstrap depends on it. Deleting or zeroing ratchet.json in a PR remains
-visible in review (config diff), unlike silent corruption; the residual
-attacker is the same repo-write attacker as G5's forged-artifact case.
+the bootstrap depends on it. Their absence IS surfaced as a gate note
+("floors dormant"), so deleting such a measurement is visible without failing
+the fork that never had one. Also not enforceable at gate level: deleting only
+the NEWEST artifact of a multi-artifact model rolls back to the older pass —
+the gate has no ledger of what once existed; that deletion, like zeroing
+ratchet.json, is a repo-write attack that stays visible in the PR diff. The
+residual attacker is the same repo-write attacker as G5's forged-artifact
+case. A third round (independent review round) added: unreadable-vs-missing
+distinction for both the runs/ directory and ratchet.json (EACCES fails
+closed, ENOENT bootstraps).
 
 ## Enforcement
 

@@ -276,10 +276,17 @@ never the self-reported summary scalar**:
   fails rather than passing on a silently-absent value.
 - **Fails closed at the file level too:** a `runs/*.json` file that cannot be
   read as a run artifact (unparseable, or not run-shaped) fails the gate
-  instead of being silently skipped, and a ratchet floor with `minPassK > 0`
-  whose model has **no artifact at all** fails the gate — deleting or
-  byte-corrupting the measurement that carries a floor cannot un-enforce it
-  (`readRunsAudit` in [`harness/runs.ts`](../harness/runs.ts)).
+  instead of being silently skipped; an EXISTING-but-unreadable `runs/`
+  directory or ratchet file fails the gate (only a genuinely missing one is
+  the bootstrap no-op); and a ratchet floor with `minPassK > 0` whose model
+  has **no artifact at all** fails the gate — byte-corrupting a measurement,
+  or deleting the only artifact of a measured-floor model, cannot un-enforce
+  it (`readRunsAudit` in [`harness/runs.ts`](../harness/runs.ts)). Scope
+  honestly: deleting an OLDER-vs-newer artifact so the gate rolls back to a
+  previous pass, or deleting the artifact of a still-unmeasured
+  (`minPassK: 0`) entry, is a repo-write attack the gate cannot distinguish
+  from legitimate history — it stays visible in the PR diff and, for dormant
+  entries, in the gate's "floors dormant" note.
 - **Fails closed on the floor's carrier and its substance:** a ratchet.json
   that exists but is corrupt, or carries a mistyped floor field (a floor
   silently coercing to 0 is a floor erased without signal), fails the gate
