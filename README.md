@@ -157,10 +157,13 @@ a model can do the task — that is what the live run measures.
 
 Model-configurable by design: swap the model id, the harness is unchanged. That
 the same gate survives model churn is the compounding property. The measured
-version of this table is rendered by [`harness/report.ts`](harness/report.ts)
-straight from artifacts under `runs/` — **no cell is ever typed by hand**. The
-`claude-opus-4-8` row below is a **real k=5 run** (60 trials, committed under
-`runs/`); the other rows stay *pending live run* until measured.
+columns below mirror `npm run report` ([`harness/report.ts`](harness/report.ts)),
+which renders **straight from artifacts under `runs/`** — and the docs test
+suite pins every percentage in this table to the committed artifact's values.
+The `$ / verified task` column comes from the metered usage ledger
+([docs/COST.md](docs/COST.md)), not the artifact. The `claude-opus-4-8` row is a
+**real k=5 run** (60 trials, committed under `runs/`); the other rows stay
+*pending live run* until measured.
 
 | Model | pass⁵ | Per-trial floor (Clopper–Pearson 95% LB) | Silent corruptions | Escalation rate | $ / verified task |
 |---|---|---|---|---|---|

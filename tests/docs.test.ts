@@ -255,9 +255,11 @@ test("per-model table: every percentage cell matches the committed artifact that
       assert.match(row, /pending live run/i, `unmeasured model row must read pending: ${row}`);
       continue;
     }
+    // Only a LIVE artifact backs a capability claim — a golden-replay stub is
+    // trivially 100% and must never license a "measured" row.
     assert.ok(
-      run !== null,
-      `row for ${model} shows a percentage but no committed runs/ artifact backs it: ${row}`,
+      run !== null && run.mode === "live",
+      `row for ${model} shows a percentage but no committed LIVE runs/ artifact backs it: ${row}`,
     );
     // Value-pinning: the row's numbers must BE the artifact's numbers — an
     // existing artifact does not license a different percentage next to it.
@@ -332,7 +334,9 @@ test("README results badge carries only artifact-backed percentages", () => {
 });
 
 test("README prose result claims (floor, n/n trials, corruption counts) are artifact-backed", () => {
-  const md = read("README.md");
+  // Join blockquote-wrapped lines ('0 silent\n> corruptions') so a claim
+  // cannot escape the scan by sitting across a markdown line wrap.
+  const md = read("README.md").replace(/\n>\s?/g, " ");
   const live = KNOWN_MODELS.map((m) => latestArtifact(m)).filter(
     (r): r is BackingReport => r !== null && r.mode === "live",
   );
@@ -442,10 +446,10 @@ test("VERIFICATION explains circularity, two witnesses, and the toast race", () 
 });
 
 // ---------------------------------------------------------------------------
-// DISCOVERY — a template, explicitly pending
+// DISCOVERY — live-run findings filled; the first-user half explicitly pending
 // ---------------------------------------------------------------------------
 
-test("DISCOVERY is a template explicitly marked pending", () => {
+test("DISCOVERY keeps the first-user half explicitly marked pending", () => {
   const md = read("docs/DISCOVERY.md");
   assert.match(
     md,
