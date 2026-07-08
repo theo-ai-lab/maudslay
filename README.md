@@ -4,7 +4,7 @@
 against independent ground truth (a confirmation email + backend state), never a
 second screen-scrape.**
 
-![gate](https://img.shields.io/badge/gate-plumbing--green-brightgreen)
+[![gate](https://github.com/theo-ai-lab/maudslay/actions/workflows/gate.yml/badge.svg)](https://github.com/theo-ai-lab/maudslay/actions/workflows/gate.yml)
 ![live pass^5](https://img.shields.io/badge/live%20pass%E2%81%B5%20(opus--4.8)-100%25%20%C2%B7%2094%25%20floor%20%C2%B7%200%20corruptions-brightgreen)
 
 > **Status:** measured. A k=5 live run of `claude-opus-4-8` (60 trials) passed
