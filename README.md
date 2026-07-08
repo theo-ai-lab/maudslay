@@ -223,8 +223,8 @@ Full 5-minute local runbook: [`DEMO.md`](DEMO.md).
 - [SECURITY.md](SECURITY.md) — the agent ingests hostile page content; what the
   sandbox's `data-guard` approval gate blocks, and what the gate does and does
   **not** guarantee.
-- [docs/DISCOVERY.md](docs/DISCOVERY.md) — the first-user discovery write-up
-  (template; **pending first real user + live run**).
+- [docs/DISCOVERY.md](docs/DISCOVERY.md) — the discovery write-up: the live-run
+  findings are filled in; the first-user half is **pending first real user**.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — the track/directory map and the data-flow
   asymmetry (pixels out, email + backend state in).
 - [CONTRACTS.md](CONTRACTS.md) / [`src/types.ts`](src/types.ts) — the frozen
