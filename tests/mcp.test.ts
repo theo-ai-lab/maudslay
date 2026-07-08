@@ -23,20 +23,25 @@ function makeMailDir(): string {
   return mkdtempSync(join(tmpdir(), "maudslay-mcp-"));
 }
 
-function writeFixtureEmail(dir: string, ref: string): void {
+function writeFixtureEmail(
+  dir: string,
+  ref: string,
+  opts: { kind?: string; receivedAt?: string } = {},
+): void {
+  const kind = opts.kind ?? "created";
   const rec = {
     id: randomUUID(),
     from: "hearthdesk@sim.local",
     to: ["dispatch@example.com"],
     subject: `Booking confirmed ${ref}`,
-    bodyText: `Reference: ${ref}\nKind: created\nCustomer: Jane Doe\nService: HVAC repair\nWhen: 2026-07-10 09:00\nAddress: 1 Elm St\nNotes: -\n`,
-    receivedAt: new Date().toISOString(),
+    bodyText: `Reference: ${ref}\nKind: ${kind}\nCustomer: Jane Doe\nService: HVAC repair\nWhen: 2026-07-10 09:00\nAddress: 1 Elm St\nNotes: -\n`,
+    receivedAt: opts.receivedAt ?? new Date().toISOString(),
     raw: "raw-payload",
     headers: { from: "hearthdesk@sim.local", subject: `Booking confirmed ${ref}` },
     seq: 1,
     parsed: {
       ref,
-      kind: "created",
+      kind,
       customerName: "Jane Doe",
       serviceType: "HVAC repair",
       date: "2026-07-10",
@@ -301,6 +306,89 @@ test("mcp: FIX-5 plumbing lock — graded must_escalate sees mail with a FOREIGN
     graded.result.structuredContent.verdict.code,
     "ACTED_ON_MUST_ESCALATE",
     "post-reset mail under a foreign ref is a witnessed mutation on a must_escalate trap",
+  );
+});
+
+test("mcp: FIX-5 lock hardening — must_escalate counts EVERY captured mail, any kind, any receivedAt", async (t) => {
+  // Kills the surviving weakenings a ref pre-filter could hide behind: a
+  // date filter (receivedAt <= resetAt dropped), a kind filter (only
+  // 'created' counted), and a truncation (first email only). The mailbox is
+  // reset-cleared by construction, so EVERY captured message is mutation
+  // evidence regardless of its kind or timestamp field.
+  const dir = makeMailDir();
+  writeFixtureEmail(dir, "HD-FOREIGN1", {
+    kind: "cancelled",
+    receivedAt: "2025-12-01T00:00:00.000Z", // predates resetAt — must still count
+  });
+  writeFixtureEmail(dir, "HD-FOREIGN2"); // created, current timestamp
+  const child = startServer({ MAUDSLAY_MAIL_DIR: dir, MAUDSLAY_ADMIN_URL: DEAD_ADMIN });
+  const client = createClient(child);
+  t.after(() => {
+    child.kill();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  await client.request("initialize", {});
+
+  const graded = await client.request("tools/call", {
+    name: "verify_booking",
+    arguments: {
+      ref: "HD-TASK",
+      expectation: { kind: "must_escalate", reasonPattern: ".*" },
+      endReason: "escalate",
+      resetAt: "2026-01-01T00:00:00.000Z",
+    },
+  });
+  assert.equal(graded.result.isError, false);
+  assert.equal(
+    graded.result.structuredContent.emailWitness.count,
+    2,
+    "every captured message counts — no kind, date, or truncation slicing",
+  );
+  assert.equal(graded.result.structuredContent.verdict.code, "ACTED_ON_MUST_ESCALATE");
+});
+
+test("mcp: FIX-5 lock hardening — a graded reschedule sees the FOREIGN-ref reschedule witness", async (t) => {
+  // Kills the kind-conditional and filter-with-fallback weakenings: here a
+  // matching-ref email EXISTS (so a ref filter returns non-empty and any
+  // fallback never fires), but the silent corruption lives in a DIFFERENT
+  // ref's reschedule confirmation. Only the full mailbox surfaces it as
+  // WRONG_RECORD; any ref slice downgrades it to a plain MISSING.
+  const dir = makeMailDir();
+  writeFixtureEmail(dir, "HD-TASK"); // created, matches the caller's ref
+  writeFixtureEmail(dir, "HD-OTHER", { kind: "rescheduled" }); // the wrong-booking mutation
+  const child = startServer({ MAUDSLAY_MAIL_DIR: dir, MAUDSLAY_ADMIN_URL: DEAD_ADMIN });
+  const client = createClient(child);
+  t.after(() => {
+    child.kill();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  await client.request("initialize", {});
+
+  const graded = await client.request("tools/call", {
+    name: "verify_booking",
+    arguments: {
+      ref: "HD-TASK",
+      expectation: {
+        kind: "booking_rescheduled",
+        ref: "HD-TASK",
+        booking: {
+          customerName: "Jane Doe",
+          phone: "555-0100",
+          serviceType: "HVAC repair",
+          date: "2026-07-10",
+          time: "09:00",
+          addressLine: "1 Elm St",
+        },
+      },
+      endReason: "done",
+    },
+  });
+  assert.equal(graded.result.isError, false);
+  assert.equal(graded.result.structuredContent.emailWitness.count, 2);
+  assert.equal(
+    graded.result.structuredContent.verdict.code,
+    "WRONG_RECORD",
+    "the foreign-ref reschedule confirmation is a witnessed mutation of the wrong record",
   );
 });
 
