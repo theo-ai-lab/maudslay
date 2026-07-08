@@ -162,6 +162,18 @@ test("every npm-run script the workflow references exists in package.json", () =
   }
 });
 
+test("test script silences the node:sqlite ExperimentalWarning, tests only", () => {
+  const scripts = loadScripts();
+  assert.ok(
+    (scripts.test ?? "").includes("--disable-warning=ExperimentalWarning"),
+    "test script must carry --disable-warning=ExperimentalWarning so suite output stays clean",
+  );
+  // The sim runtime keeps the warning on purpose: node:sqlite IS experimental
+  // and the disclosure belongs wherever the server actually runs.
+  const sim = scripts.sim ?? "";
+  assert.ok(!sim.includes("--disable-warning"), "sim script must NOT suppress warnings");
+});
+
 // --- .env.example -----------------------------------------------------------
 
 test(".env.example carries the required keys and no committed secret", () => {

@@ -7,7 +7,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-concurrency=1 tests/*.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 tests/*.test.ts",
     "sim": "node sim/server.ts",
     "sink": "node groundtruth/smtp-sink.ts",
     "oracle": "node harness/oracle.ts",
