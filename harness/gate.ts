@@ -28,7 +28,12 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import type { GateOutcome, RatchetConfig } from "../src/types.ts";
 import { isSilentCorruption, isSuccess } from "../src/types.ts";
-import { readRunsAudit, latestPerModel, type RunArtifact } from "./runs.ts";
+import {
+  readRunsAudit,
+  latestPerModel,
+  type RunArtifact,
+  type RunTrialRecord,
+} from "./runs.ts";
 
 export interface GateReport {
   outcome: GateOutcome;
@@ -57,6 +62,22 @@ function parseRatchet(raw: unknown): { config: RatchetConfig; problems: string[]
               `ratchet config: ${id}.${field} is present but not a number — a floor must never silently coerce to 0; failing closed`,
             );
           }
+        }
+        // Out-of-range values are the same attack with a valid type: a
+        // negative minPassK skips every measured-floor branch, k below 1 or a
+        // negative minTasks make their checks vacuous.
+        if (typeof c.minPassK === "number" && (c.minPassK < 0 || c.minPassK > 1)) {
+          problems.push(
+            `ratchet config: ${id}.minPassK=${c.minPassK} is outside [0, 1] — failing closed`,
+          );
+        }
+        if (typeof c.k === "number" && c.k < 1) {
+          problems.push(`ratchet config: ${id}.k=${c.k} is below 1 — failing closed`);
+        }
+        if (typeof c.minTasks === "number" && c.minTasks < 0) {
+          problems.push(
+            `ratchet config: ${id}.minTasks=${c.minTasks} is negative — failing closed`,
+          );
         }
         models[id] = {
           minPassK: typeof c.minPassK === "number" ? c.minPassK : 0,
@@ -232,25 +253,45 @@ export function evaluateGate(
         continue;
       }
       // The RATCHET invariant gets the same treatment as the HARD invariant:
-      // recompute pass^k from the AUTHORITATIVE per-trial verdicts and
-      // cross-check the self-reported summary, so deleting failing trial
-      // records (or inflating report.passK) cannot satisfy a floor.
-      const byTask = new Map<string, boolean[]>();
+      // recompute pass^k AND task coverage from the AUTHORITATIVE per-trial
+      // verdicts and cross-check every self-reported summary, so deleting a
+      // failing trial, deleting a whole failing task, padding with duplicate
+      // records, or inflating report.passK cannot satisfy a floor.
+      const byTask = new Map<string, RunTrialRecord[]>();
       for (const t of run.trials) {
         const arr = byTask.get(t.taskId) ?? [];
-        arr.push(isSuccess(t.verdict));
+        arr.push(t);
         byTask.set(t.taskId, arr);
       }
-      const underK = [...byTask.entries()].filter(([, arr]) => arr.length < run.k);
+      // k trials means k DISTINCT trials: unique trial indexes, not record
+      // count — a duplicated passing record cannot stand in for a deleted one.
+      const underK = [...byTask.entries()].filter(
+        ([, ts]) => new Set(ts.map((t) => t.trialIndex)).size < run.k,
+      );
       if (underK.length > 0) {
         failures.push(
-          `${model}: ${underK.length} task(s) carry fewer than k=${run.k} trial records — ` +
-            `pass^k cannot be verified from the trials; failing closed`,
+          `${model}: ${underK.length} task(s) carry fewer than k=${run.k} distinct trial ` +
+            `records — pass^k cannot be verified from the trials; failing closed`,
+        );
+      }
+      // Coverage is trial-derived too: the self-reported perTask cannot vouch
+      // for tasks whose records were erased wholesale.
+      if (byTask.size !== perTask.length) {
+        failures.push(
+          `${model}: artifact integrity — report.perTask lists ${perTask.length} task(s) ` +
+            `but the trial records carry ${byTask.size}`,
+        );
+      }
+      if (byTask.size < floor.minTasks) {
+        failures.push(
+          `${model}: trial-derived task coverage ${byTask.size} < minTasks ${floor.minTasks}`,
         );
       }
       const tasks = [...byTask.values()];
       const derived =
-        tasks.length === 0 ? 0 : tasks.filter((arr) => arr.every(Boolean)).length / tasks.length;
+        tasks.length === 0
+          ? 0
+          : tasks.filter((ts) => ts.every((t) => isSuccess(t.verdict))).length / tasks.length;
       if (Math.abs(derived - passK) > 1e-9) {
         failures.push(
           `${model}: artifact integrity — report.passK=${passK.toFixed(4)} disagrees with ` +

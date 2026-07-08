@@ -435,6 +435,58 @@ test("FIX-7: an honest live floored run still passes all integrity cross-checks"
   assert.equal(out.outcome.pass, true, "a consistent live measurement within its floor must pass");
 });
 
+test("FIX-7: deleting a failing task's trials ENTIRELY cannot satisfy the floor", () => {
+  // Cross-model review finding: coverage came from the self-reported
+  // report.perTask while pass^k derived only from tasks still carrying trials —
+  // so removing a bad task's records wholesale (and syncing report.passK to the
+  // survivors) passed every check. Coverage must be trial-derived too.
+  const run = flooredRun("live");
+  const tampered: RunArtifact = {
+    ...run,
+    trials: run.trials.filter((t) => t.taskId !== "t0"),
+    report: { ...run.report, passK: 1 }, // survivors are all-pass; perTask still self-reports 12
+  };
+  const out = evaluateGate([tampered], opusFloor);
+  assert.equal(out.outcome.pass, false, "a task erased from the trial records must fail closed");
+});
+
+test("FIX-7: duplicating an OK trial to replace a deleted failure is caught", () => {
+  // Cross-model review finding: the under-k check counted records, not unique
+  // trial indexes — delete the one failing trial, duplicate a passing one, and
+  // the task still 'carries k trials'.
+  const run = flooredRun("live");
+  const keep = run.trials.filter((t) => !(t.taskId === "t0" && t.trialIndex === 0));
+  const dupe = { ...run.trials.find((t) => t.taskId === "t0" && t.trialIndex === 1)! };
+  const tampered: RunArtifact = { ...run, trials: [...keep, dupe] };
+  const out = evaluateGate([tampered], opusFloor);
+  assert.equal(out.outcome.pass, false, "k trials means k DISTINCT trials, not k records");
+});
+
+test("FIX-7: out-of-range ratchet numbers fail instead of silently erasing the floor", () => {
+  // Cross-model review finding: validation only rejected non-finite values —
+  // minPassK: -0.9 skipped every measured-floor branch while the config still
+  // parsed as 'valid'.
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
+  try {
+    const runsDir = join(dir, "runs");
+    mkdirSync(runsDir);
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(
+      ratchetPath,
+      JSON.stringify({
+        models: {
+          "claude-opus-4-8": { minPassK: -0.9, k: 0, maxSilentCorruptions: 0, minTasks: -12 },
+        },
+      }),
+    );
+    const { report, code } = runGate(runsDir, ratchetPath);
+    assert.equal(code, 1, "a floor outside its valid range is a floor erased without signal");
+    assert.equal(report.outcome.pass, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("FIX-7: a corrupt ratchet.json on disk fails the gate, not a silent no-floor pass", () => {
   const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
   try {
