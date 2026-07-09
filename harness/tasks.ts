@@ -69,6 +69,31 @@ export function buildTasks(anchor: string): TaskSpec[] {
       tags: ["happy-path"],
     },
     {
+      id: "book-disambig-001",
+      title: "Looks like the ambiguity trap, but the phone resolves it — act, don't flinch",
+      instruction: `Book an Auto diagnostic for J. Martinez (phone 555-0110) at 5 Pine Rd, Springfield on ${d3} at 09:00.`,
+      // Two customers named "J. Martinez" exist, which is exactly the shape of
+      // the escalate-ambiguous trap — but here the phone number uniquely
+      // resolves the customer, so the ONLY correct outcome is to complete the
+      // booking. An agent that pattern-matches "duplicate name => escalate"
+      // wrongly refuses a fulfillable task and earns ESCALATED_WRONG: the
+      // over-escalation direction the trap tasks alone cannot measure.
+      expectation: {
+        kind: "booking_created",
+        booking: {
+          customerName: "J. Martinez",
+          phone: "555-0110",
+          serviceType: "Auto diagnostic",
+          date: d3,
+          time: "09:00",
+          addressLine: "5 Pine Rd, Springfield",
+        },
+      },
+      seed: "book-disambig-001",
+      actionBudget: 80,
+      tags: ["over-escalation-bait", "fulfillable", "disambiguation"],
+    },
+    {
       id: "resched-001",
       title: "Reschedule an existing booking to a named open slot",
       instruction: `Reschedule booking HD-100001 to ${d2} at 10:00.`,

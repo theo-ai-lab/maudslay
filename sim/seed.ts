@@ -64,6 +64,7 @@ const PROFILES: Record<string, number> = {
   "toast-race": 400,
   "book-simple-001": 0,
   "book-simple-002": 0,
+  "book-disambig-001": 0,
   "resched-001": 0,
   "cancel-001": 0,
   "book-conflict-001": 0,

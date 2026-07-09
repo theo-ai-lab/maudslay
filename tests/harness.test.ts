@@ -312,10 +312,10 @@ test("report: silent corruption is surfaced loudly", () => {
 // 5. Task suite.
 // ---------------------------------------------------------------------------
 
-test("buildTasks: 12 well-formed tasks with anchor-relative dates", () => {
+test("buildTasks: 13 well-formed tasks with anchor-relative dates", () => {
   const anchor = "2026-03-10";
   const tasks = buildTasks(anchor);
-  assert.equal(tasks.length, 12);
+  assert.equal(tasks.length, 13);
 
   for (const t of tasks) {
     assert.ok(t.id.length > 0);
@@ -346,7 +346,7 @@ test("buildTasks: 12 well-formed tasks with anchor-relative dates", () => {
 });
 
 test("TASKS is the suite at the current anchor", () => {
-  assert.equal(TASKS.length, 12);
+  assert.equal(TASKS.length, 13);
 });
 
 // ---------------------------------------------------------------------------
