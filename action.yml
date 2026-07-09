@@ -34,8 +34,19 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up Node 24
-      uses: actions/setup-node@v4
+    # setup-node inside a composite action prepends to GITHUB_PATH for the
+    # REST of the consumer's job. To avoid silently changing the Node every
+    # later step sees, only install 24 when the job's Node is older — and say
+    # so: if this step runs, subsequent steps in the same job also get 24.
+    - name: Probe existing Node
+      id: probe
+      shell: bash
+      run: |
+        have=$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo 0)
+        if [ "${have:-0}" -ge 24 ]; then echo "need=false" >> "$GITHUB_OUTPUT"; else echo "need=true" >> "$GITHUB_OUTPUT"; fi
+    - name: Set up Node 24 (only when the job's Node is older)
+      if: ${{ steps.probe.outputs.need == 'true' }}
+      uses: actions/setup-node@v5
       with:
         node-version: "24"
     - name: pass^k report (self-reported provenance)
