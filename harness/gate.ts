@@ -79,11 +79,36 @@ function parseRatchet(raw: unknown): { config: RatchetConfig; problems: string[]
             `ratchet config: ${id}.minTasks=${c.minTasks} is negative — failing closed`,
           );
         }
+        // The silent-corruption invariant is hard-zero for every model, by
+        // design. A config that PRESENTS a nonzero maxSilentCorruptions is
+        // trying to weaken that invariant — reject it loudly rather than
+        // silently clamping to 0 (a clamp lets the config lie about its own
+        // tolerance). Absent = the documented default of 0.
+        if ("maxSilentCorruptions" in c && c.maxSilentCorruptions !== 0) {
+          problems.push(
+            `ratchet config: ${id}.maxSilentCorruptions=${JSON.stringify(c.maxSilentCorruptions)} — ` +
+              `the corruption tolerance is hard-zero for every model and cannot be raised; failing closed`,
+          );
+        }
+        // Optional rollback lock. A malformed pin (present but not { generatedAt: string })
+        // is a floor being erased without signal — same treatment as a mistyped minPassK.
+        let pin: { generatedAt: string } | undefined;
+        if ("pinnedArtifact" in c && c.pinnedArtifact !== undefined) {
+          const p = c.pinnedArtifact as Record<string, unknown> | null;
+          if (p && typeof p === "object" && typeof p.generatedAt === "string") {
+            pin = { generatedAt: p.generatedAt };
+          } else {
+            problems.push(
+              `ratchet config: ${id}.pinnedArtifact is present but not { generatedAt: string } — failing closed`,
+            );
+          }
+        }
         models[id] = {
           minPassK: typeof c.minPassK === "number" ? c.minPassK : 0,
           k: typeof c.k === "number" ? c.k : 1,
           maxSilentCorruptions: 0,
           minTasks: typeof c.minTasks === "number" ? c.minTasks : 0,
+          ...(pin ? { pinnedArtifact: pin } : {}),
         };
       }
     }
@@ -179,6 +204,28 @@ export function evaluateGate(
           `${model}: ratchet entry configured but no run artifact present (unmeasured — floors dormant)`,
         );
       }
+    }
+  }
+
+  // FAIL-CLOSED: a pinned artifact locks the exact measurement a floor is read
+  // against. The selected latest MUST equal the pin — if it is older, the pinned
+  // newest was deleted and an older passing run rolled in (the G5 residual); if
+  // it is newer, a measurement superseded the pin without a deliberate re-pin.
+  // Either way the operator must update ratchet.json, which is visible in the diff.
+  for (const [model, floor] of Object.entries(ratchet.models)) {
+    const pin = floor.pinnedArtifact;
+    if (!pin) continue;
+    const run = latest.get(model);
+    if (!run) {
+      failures.push(
+        `${model}: ratchet pins artifact generatedAt=${pin.generatedAt} but no run for this model is present — ` +
+          `the pinned measurement is gone; failing closed`,
+      );
+    } else if (run.generatedAt !== pin.generatedAt) {
+      failures.push(
+        `${model}: ratchet pins artifact generatedAt=${pin.generatedAt} but the latest artifact is ` +
+          `${run.generatedAt} — a deleted-newest rollback or an un-repinned supersession; failing closed`,
+      );
     }
   }
 

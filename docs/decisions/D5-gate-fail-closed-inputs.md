@@ -72,3 +72,18 @@ Regression-locked as FIX-7 in `tests/integrity-fixes.test.ts` (unit + on-disk
 ratchet, stub-mode floor, under-k trials, and passK disagreement). Threat model
 G5 updated: the residual shrinks to a wholly forged **well-formed live**
 artifact from a repo-write attacker (out of scope).
+
+## Round 4 additions (score-max hardening)
+
+- **Nonzero `maxSilentCorruptions` is rejected, not clamped.** `parseRatchet`
+  used to hardcode `maxSilentCorruptions: 0`, silently ignoring any configured
+  value. A config that sets a nonzero tolerance is either a mistake or an attempt
+  to weaken the hard-zero invariant; it now fails the gate closed rather than
+  lying about its own tolerance.
+- **`pinnedArtifact` rollback lock.** A measured floor may pin the exact
+  `generatedAt` its measurement is read against. The gate requires the model's
+  latest artifact to equal the pin, so the deleted-newest rollback residual
+  (G5) fails closed; superseding the pin requires a deliberate ratchet re-pin,
+  visible in the PR diff. Content-tamper of the pinned artifact's trials remains
+  the acknowledged forged-well-formed-artifact residual (a per-file sha256 pin
+  is a future hardening — it needs the gate to see raw bytes, not parsed runs).

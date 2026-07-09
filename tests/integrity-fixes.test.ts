@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { Executor } from "../executor/tools.ts";
 import type { ExecutorPage } from "../executor/tools.ts";
 import { Sandbox, defaultSandboxConfig, denyAllCallback } from "../executor/sandbox.ts";
-import { evaluateGate, runGate } from "../harness/gate.ts";
+import { evaluateGate, loadRatchetAudit, runGate } from "../harness/gate.ts";
 import type { RunArtifact, RunTrialRecord } from "../harness/runs.ts";
 import { buildMessage } from "../sim/mailer.ts";
 import { applyCacheControl } from "../agent/model.ts";
@@ -586,4 +586,74 @@ test("FIX-7: a ratchet entry with no artifact is VISIBLE as a note even at minPa
     out.notes.some((n) => n.includes("claude-sonnet-4-6") && /dormant|unmeasured|no run artifact/i.test(n)),
     `the dormant entry must surface as a note; got: ${JSON.stringify(out.notes)}`,
   );
+});
+
+// --- FIX 8 (E1): a nonzero maxSilentCorruptions is a config trying to weaken --
+// the hard-zero corruption invariant. parseRatchet silently clamped it to 0,
+// so an operator (or attacker) editing ratchet.json to tolerate corruptions got
+// a config that lied about its own tolerance. Reject it loudly, fail closed.
+test("FIX-8: a nonzero maxSilentCorruptions in the ratchet fails closed", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-msc-"));
+  try {
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(
+      ratchetPath,
+      JSON.stringify({
+        models: { "claude-opus-4-8": { minPassK: 0.9, k: 5, maxSilentCorruptions: 2, minTasks: 12 } },
+      }),
+    );
+    const { problems } = loadRatchetAudit(ratchetPath);
+    assert.ok(
+      problems.some((p) => /maxSilentCorruptions/i.test(p)),
+      `a nonzero corruption tolerance must be rejected; got: ${JSON.stringify(problems)}`,
+    );
+    const out = evaluateGate([flooredRun("live")], { models: {} }, [], problems);
+    assert.equal(out.outcome.pass, false, "the gate must fail closed on the rejected config");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- FIX 9 (E2): pinnedArtifact closes the newest-artifact-deletion rollback ---
+// residual (THREAT_MODEL G5). With a pin, the model's latest artifact MUST be
+// exactly the pinned generatedAt; deleting the newest (older passing run then
+// selected) or superseding it without re-pinning both fail the gate closed.
+const pinnedFloor: RatchetConfig = {
+  models: {
+    "claude-opus-4-8": {
+      minPassK: 0.9,
+      k: 5,
+      maxSilentCorruptions: 0,
+      minTasks: 12,
+      pinnedArtifact: { generatedAt: "2026-07-01T00:00:00.000Z" },
+    },
+  },
+};
+
+test("FIX-9: the pinned artifact present at its pinned generatedAt passes", () => {
+  const out = evaluateGate([flooredRun("live")], pinnedFloor);
+  assert.equal(
+    out.outcome.pass,
+    true,
+    out.outcome.pass ? "" : (out.outcome as { failures: string[] }).failures.join("; "),
+  );
+});
+
+test("FIX-9: deleting the pinned newest artifact (older one remains) fails closed", () => {
+  const older = flooredRun("live");
+  older.generatedAt = "2026-06-01T00:00:00.000Z";
+  const out = evaluateGate([older], pinnedFloor);
+  assert.equal(out.outcome.pass, false, "rollback via newest-deletion must fail closed");
+});
+
+test("FIX-9: a newer artifact superseding the pin without a re-pin fails closed", () => {
+  const newer = flooredRun("live");
+  newer.generatedAt = "2026-08-01T00:00:00.000Z";
+  const out = evaluateGate([newer], pinnedFloor);
+  assert.equal(out.outcome.pass, false, "supersession must force a deliberate ratchet re-pin");
+});
+
+test("FIX-9: a pin with no artifact at all for the model fails closed", () => {
+  const out = evaluateGate([], pinnedFloor);
+  assert.equal(out.outcome.pass, false, "a pin to a now-absent artifact must fail closed");
 });

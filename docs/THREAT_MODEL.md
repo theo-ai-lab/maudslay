@@ -88,7 +88,7 @@ What an attacker would want to corrupt, in descending order of damage:
 | G2 | Get a bad outcome graded OK | Two-witness outcome grading, incl. the `updatedAt` mutation signal | Fields a witness does not carry; deliberate normalization tolerance |
 | G3 | Forge a witness | Control-character sanitization at the witness boundary; witness channels unreachable from the browser | Host-level access to loopback ports (out of scope) |
 | G4 | Bypass the approval gate | Fail-closed guard resolution; origin/bounds/budget re-checks; deny-all posture | Same TOCTOU and unmarked-control residuals as G1; auto-approve mode approves everything |
-| G5 | Sneak a corrupt run past the gate | Gate recomputes silent corruptions from per-trial verdicts; unreadable artifact files and artifact-less ratchet floors fail closed | A wholly forged artifact from a repo-write attacker (out of scope) |
+| G5 | Sneak a corrupt run past the gate | Gate recomputes silent corruptions from per-trial verdicts; unreadable artifact files and artifact-less ratchet floors fail closed; an optional `pinnedArtifact` locks the exact measurement a floor reads against (deleted-newest rollback fails closed) | A wholly forged well-formed artifact from a repo-write attacker (out of scope; visible in the PR diff) |
 
 ### G1 — Commit a wrong or unauthorized booking
 
@@ -282,11 +282,17 @@ never the self-reported summary scalar**:
   has **no artifact at all** fails the gate — byte-corrupting a measurement,
   or deleting the only artifact of a measured-floor model, cannot un-enforce
   it (`readRunsAudit` in [`harness/runs.ts`](../harness/runs.ts)). Scope
-  honestly: deleting an OLDER-vs-newer artifact so the gate rolls back to a
-  previous pass, or deleting the artifact of a still-unmeasured
-  (`minPassK: 0`) entry, is a repo-write attack the gate cannot distinguish
-  from legitimate history — it stays visible in the PR diff and, for dormant
-  entries, in the gate's "floors dormant" note.
+  honestly: deleting the artifact of a still-unmeasured (`minPassK: 0`) entry
+  is a repo-write attack the gate cannot distinguish from legitimate history —
+  it stays visible in the PR diff and, for dormant entries, in the gate's
+  "floors dormant" note.
+- **Rollback lock (optional):** a measured floor may set
+  `pinnedArtifact: { generatedAt }`. The gate then requires that model's latest
+  artifact to be **exactly** the pinned one — deleting the pinned newest so an
+  older passing run rolls in fails closed, and a newer artifact superseding the
+  pin without a deliberate ratchet re-pin fails closed too. This closes the
+  deleted-newest rollback: the only way past it is editing ratchet.json, which
+  is visible in the PR diff.
 - **Fails closed on the floor's carrier and its substance:** a ratchet.json
   that exists but is corrupt, or carries a mistyped floor field (a floor
   silently coercing to 0 is a floor erased without signal), fails the gate

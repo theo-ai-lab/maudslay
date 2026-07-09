@@ -217,7 +217,20 @@ export interface RatchetConfig {
   /** per model-id floors; gate fails if a report drops below its floor. */
   models: Record<
     string,
-    { minPassK: number; k: number; maxSilentCorruptions: 0; minTasks: number }
+    {
+      minPassK: number;
+      k: number;
+      maxSilentCorruptions: 0;
+      minTasks: number;
+      /**
+       * Optional rollback lock. When set, the model's latest artifact MUST be
+       * exactly this `generatedAt`; a mismatch (the pinned newest was deleted so
+       * an older passing run is selected, or a newer run supersedes it without a
+       * deliberate ratchet update) fails the gate closed. Closes the
+       * newest-artifact-deletion residual (THREAT_MODEL G5).
+       */
+      pinnedArtifact?: { generatedAt: string };
+    }
   >;
 }
 
