@@ -62,11 +62,23 @@ prints this on every run.
 
 ### Mapping your framework's output
 
-- **Browser Use** — an `AgentHistoryList` exposes `is_done()` / `is_successful()`
-  per run; map a successful run to `"success"`, everything else to `"failure"`,
-  and group repeated runs of the same task under one `taskId`.
-- **Skyvern** — a task's terminal status (`completed` vs `failed`/`terminated`)
-  is the `outcome`; the workflow/prompt id is the `taskId`.
+Converters for the two most common shapes ship in
+[`examples/import/from-frameworks.ts`](../examples/import/from-frameworks.ts),
+with the derivation rules verified against each project's main branch (2026-07):
+
+- **Browser Use** — `Agent.save_history()` writes `AgentHistory.json`:
+  `{"history": [...]}` where each step carries a `result` array. The terminal
+  outcome is **derived, not stored**: the last result of the last step counts as
+  success only when `is_done: true` *and* `success: true` (the export omits
+  `success` on non-terminal actions, and the library's own `is_successful()` is
+  tri-state — a run that never finished converts to `"failure"`, never a guess).
+  The export carries **no task id**, so `fromBrowserUse()` takes a manifest
+  mapping each history file to a `taskId`/`trialIndex`.
+- **Skyvern** — a run response has `status` (lowercase; terminal values
+  `completed`, `failed`, `terminated`, `canceled`, `timed_out`) and **no success
+  boolean**: success is exactly `status === "completed"` (`skyvernOutcome()`).
+  A non-terminal status (`running`, `queued`, `created`) fails closed — grading
+  a run still in flight would be a guess.
 - **Anything else** — you only need `taskId`, `trialIndex`, and
   `success`/`failure`. `trialIndex` must be unique per task, and every task must
   have **exactly `k`** trials (down-select deliberately if your framework ran
