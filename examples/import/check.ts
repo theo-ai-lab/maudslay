@@ -24,11 +24,12 @@ export function checkThreshold(
   const r = raw as Partial<ImportReport> | null;
   if (
     !r || typeof r !== "object" || r.schema !== IMPORT_REPORT_SCHEMA ||
-    r.source !== "self-reported" || !r.report || typeof r.report.passK !== "number" ||
-    !Number.isFinite(r.report.passK)
+    r.source !== "self-reported" || r.outcomeVerified !== false ||
+    !r.report || typeof r.report.passK !== "number" ||
+    !Number.isFinite(r.report.passK) || r.report.passK < 0 || r.report.passK > 1
   ) {
     throw new ImportValidationError(
-      "input is not a maudslay.import-report/1 with a finite passK — failing closed",
+      "input is not a maudslay.import-report/1 (self-reported, outcomeVerified:false) with passK in [0,1] — failing closed",
     );
   }
   const passK = r.report.passK;

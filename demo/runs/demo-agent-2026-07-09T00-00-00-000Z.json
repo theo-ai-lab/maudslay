@@ -36,10 +36,11 @@
     ],
     "passK": 0.3333333333333333,
     "perTrialPassRate": 0.6666666666666666,
-    "perTrialLowerBound95": 0.0,
+    "perTrialLowerBound95": 0.22277809550351213,
+    "taskLowerBound95": 0.008403758659612404,
     "trialsTotal": 6,
     "silentCorruptions": 1,
-    "escalationRate": 0.0
+    "escalationRate": 0
   },
   "trials": [
     {

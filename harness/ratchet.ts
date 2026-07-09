@@ -12,9 +12,23 @@ import type { RatchetConfig } from "../src/types.ts";
 export function parseRatchet(raw: unknown): { config: RatchetConfig; problems: string[] } {
   const models: RatchetConfig["models"] = {};
   const problems: string[] = [];
-  if (raw && typeof raw === "object") {
+  // The top level must be a plain object carrying a plain-object `models`. An
+  // array, string, number, or a null/mistyped `models` is a config that EXISTS
+  // but cannot carry floors — parsing it as "zero floors" would erase every
+  // promise without a signal, the exact failure mode this loader exists to stop.
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    problems.push("ratchet config: top level is not an object — failing closed");
+    return { config: { models }, problems };
+  }
+  {
     const m = (raw as { models?: unknown }).models;
-    if (m && typeof m === "object") {
+    if (!m || typeof m !== "object" || Array.isArray(m)) {
+      problems.push(
+        "ratchet config: `models` is missing or not an object — floors cannot be carried; failing closed",
+      );
+      return { config: { models }, problems };
+    }
+    {
       for (const [id, cfg] of Object.entries(m as Record<string, unknown>)) {
         if (!cfg || typeof cfg !== "object") {
           problems.push(`ratchet config: entry for ${id} is not an object — failing closed`);
