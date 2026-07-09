@@ -81,7 +81,13 @@ export interface AppState {
 
 export function openDb(path: string): DatabaseSync {
   mkdirSync(dirname(path), { recursive: true });
-  return new DatabaseSync(path);
+  const db = new DatabaseSync(path);
+  // Without a busy handler, node:sqlite throws SQLITE_BUSY ("database is
+  // locked") the instant another handle holds the write lock — e.g. two test
+  // suites or a suite and a live sim sharing var/. A short wait absorbs that
+  // transient contention instead of turning it into a flaky failure.
+  db.exec("PRAGMA busy_timeout = 2000");
+  return db;
 }
 
 /** Drop everything and recreate a clean schema. Called on every reset. */
