@@ -46,14 +46,26 @@ export function checkThreshold(
 
 function main(): void {
   const args = process.argv.slice(2);
-  const file = args.find((a) => !a.startsWith("-"));
+  // Flag-aware: the token after --min-pass-k is its VALUE, never the file.
+  const file = args.find((a, i) => !a.startsWith("-") && args[i - 1] !== "--min-pass-k");
   const idx = args.indexOf("--min-pass-k");
   const min = idx >= 0 ? Number(args[idx + 1]) : NaN;
   if (!file || !Number.isFinite(min)) {
     console.error("usage: node examples/import/check.ts <import-report.json> --min-pass-k <0..1>");
     process.exit(1);
   }
-  const verdict = checkThreshold(JSON.parse(readFileSync(file, "utf8")), min);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8"));
+  } catch (e) {
+    console.error(
+      new ImportValidationError(
+        `cannot read/parse ${file} — failing closed: ${e instanceof Error ? e.message : String(e)}`,
+      ).message,
+    );
+    process.exit(1);
+  }
+  const verdict = checkThreshold(parsed, min);
   console.log(verdict.detail);
   process.exit(verdict.ok ? 0 : 1);
 }

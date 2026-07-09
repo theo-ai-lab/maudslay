@@ -15,7 +15,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { clopperPearsonLower } from "../harness/passk.ts";
+import { dirname, join, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
@@ -556,3 +557,32 @@ test("DISCOVERY keeps the first-user half explicitly marked pending", () => {
   assert.match(md, /measure next/i, "template prompt: what to measure next");
 });
 
+
+test("BENCHMARK's task-level floor derives from the committed artifact", () => {
+  // The only results number without a pin until now. Recompute the task-level
+  // CP bound straight from the committed opus artifact; when a re-pinned run
+  // changes the task count, this goes red until the doc is re-derived.
+  const artifactName = readdirSync("runs").find(
+    (f) => f.startsWith("claude-opus-4-8-") && f.endsWith(".json"),
+  );
+  assert.ok(artifactName, "committed opus artifact must exist");
+  const artifact = JSON.parse(read(join("runs", artifactName as string))) as {
+    report: { perTask: Array<{ passAllK: boolean }> };
+  };
+  const n = artifact.report.perTask.length;
+  const s = artifact.report.perTask.filter((t) => t.passAllK).length;
+  const floor = clopperPearsonLower(s, n);
+  const md = read("docs/BENCHMARK.md");
+  assert.ok(
+    md.includes(`0.025^(1/${n})`) || s !== n,
+    `BENCHMARK must show the all-pass closed form for n=${n}`,
+  );
+  assert.ok(
+    md.includes(floor.toFixed(4).replace(/0+$/, "")) || md.includes(floor.toFixed(4)),
+    `BENCHMARK's task-level floor must be the artifact-derived ${floor.toFixed(4)}`,
+  );
+  assert.ok(
+    md.includes(`${s}/${n} tasks passing all k`),
+    `BENCHMARK must describe the artifact's actual ${s}/${n} task outcome`,
+  );
+});

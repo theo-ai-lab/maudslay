@@ -1,5 +1,6 @@
 /**
- * The golden task suite (v0) — 12 TaskSpecs per docs/decisions/D2-task-suite.md.
+ * The golden task suite — 13 TaskSpecs (v0 = 12 per docs/decisions/D2-task-suite.md,
+ * plus the over-escalation bait book-disambig-001).
  *
  * The suite deliberately mixes fulfillable work with `must_escalate` traps,
  * because the single most valuable signal for a computer-use reliability
@@ -18,7 +19,7 @@ import type { TaskSpec } from "../src/types.ts";
 import { addDays, computeAnchor } from "../sim/seed.ts";
 
 /**
- * Build the 12-task suite against a given anchor date (YYYY-MM-DD). d2/d3 are
+ * Build the 13-task suite against a given anchor date (YYYY-MM-DD). d2/d3 are
  * the two seeded schedule days; `past` is the disabled past date for the
  * past-date trap.
  */
