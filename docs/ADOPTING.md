@@ -1,0 +1,73 @@
+# Adopting Maudslay for your own agent
+
+Two ways in, honest about what each buys you.
+
+## 1. Report on results you already have (5 minutes, no wiring)
+
+If your agent framework (Browser Use, Skyvern, a homegrown harness) already
+records per-trial success/failure, you can run Maudslay's pass^k reliability
+math over those results today — no witnesses, no sim, no code changes to your
+agent.
+
+Write your results as a `maudslay.external-results/1` file:
+
+```json
+{
+  "schema": "maudslay.external-results/1",
+  "model": "my-agent-v3",
+  "k": 5,
+  "trials": [
+    { "taskId": "checkout", "trialIndex": 0, "outcome": "success" },
+    { "taskId": "checkout", "trialIndex": 1, "outcome": "failure" }
+  ]
+}
+```
+
+Then:
+
+```bash
+node examples/import/cli.ts my-results.json --out var/import-report.json
+```
+
+You get pass^k (all-k-must-pass), the per-trial rate, and the Clopper–Pearson
+95% floor — the same math the gate uses — plus fail-closed schema validation
+that rejects ragged, duplicated, or malformed data instead of quietly averaging
+around it.
+
+**What this is NOT.** This path is a *reporter*, not the two-witness gate. Your
+framework's `outcome` is self-reported: it can say "the agent thought it
+succeeded," but it cannot witness a *silent corruption* — the agent booking the
+wrong record and believing it got it right. So imported reports carry
+`source: "self-reported"`, `outcomeVerified: false`, and their silent-corruption
+count is structurally zero (nothing measured it), never a green light. The tool
+prints this on every run.
+
+### Mapping your framework's output
+
+- **Browser Use** — an `AgentHistoryList` exposes `is_done()` / `is_successful()`
+  per run; map a successful run to `"success"`, everything else to `"failure"`,
+  and group repeated runs of the same task under one `taskId`.
+- **Skyvern** — a task's terminal status (`completed` vs `failed`/`terminated`)
+  is the `outcome`; the workflow/prompt id is the `taskId`.
+- **Anything else** — you only need `taskId`, `trialIndex`, and
+  `success`/`failure`. `trialIndex` must be unique per task, and every task must
+  have at least `k` trials.
+
+## 2. Gate for real (the two-witness path)
+
+To get the thing the reporter can't give you — detection of silent corruption,
+and a merge-blocking floor you can trust — the outcome has to be graded by
+channels your agent does not author. That means, for your app:
+
+1. An **independent ground-truth channel** per task: a backend row, a
+   confirmation email, an API read — something the agent cannot write directly.
+   See [`groundtruth/verifier.ts`](../groundtruth/verifier.ts) for how the
+   reference sim grades from two witnesses and never reads the screen.
+2. **Task expectations** describing the correct outcome (and the ambiguous
+   tasks whose only correct outcome is escalation) — see
+   [`harness/tasks.ts`](../harness/tasks.ts).
+3. A **live run** that produces a `runs/` artifact, and a `ratchet.json` floor.
+   From there the gate in [`harness/gate.ts`](../harness/gate.ts) is yours.
+
+This is more work, and it is the work that makes the number mean something.
+[`ARCHITECTURE.md`](../ARCHITECTURE.md) maps every piece you would supply.

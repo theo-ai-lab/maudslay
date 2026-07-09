@@ -1,0 +1,11 @@
+{
+  "schema": "maudslay.external-results/1",
+  "model": "my-browser-use-agent",
+  "k": 2,
+  "trials": [
+    { "taskId": "checkout-flow", "trialIndex": 0, "outcome": "success" },
+    { "taskId": "checkout-flow", "trialIndex": 1, "outcome": "success" },
+    { "taskId": "refund-flow", "trialIndex": 0, "outcome": "success" },
+    { "taskId": "refund-flow", "trialIndex": 1, "outcome": "failure" }
+  ]
+}

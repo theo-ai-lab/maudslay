@@ -15,6 +15,7 @@
     "gate": "node harness/gate.ts",
     "report": "node harness/report.ts",
     "promote": "node harness/promote.ts",
+    "import": "node examples/import/cli.ts",
     "mcp": "node mcp/server.ts"
   },
   "dependencies": {

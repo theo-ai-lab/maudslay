@@ -64,17 +64,44 @@ point is that no open tool does all five of these *together* for computer-use.)
 | **Maudslay** | Yes | Yes | Yes | Yes | Yes |
 | [ASSERT](https://github.com/responsibleai/ASSERT) — policy-driven LLM-judge over traces | No | No | No | No | No |
 | [EvalView](https://github.com/hidai25/eval-view) — merge-blocking trajectory-snapshot diff | No | No | No | Yes | No |
+| Braintrust / LangSmith-class eval platforms — configurable evaluators + CI reporting | No | No | No | No | No |
+| [OpenComputer](https://arxiv.org/abs/2605.19769) — programmatic per-app CUA outcome verification (benchmark infra) | Yes | Yes | No | No | Yes |
+| [PreAct](https://arxiv.org/abs/2606.17929) — clean-reset replay + independent evaluator admission | Yes | Yes | No | No | No |
 
-- **ASSERT** judges a trajectory against a policy with an LLM judge. Valuable,
-  but the judge reads the trace the agent produced — there is no independent
-  side-channel, no pass^k, no gate, and no computer-use surface.
-- **EvalView** blocks merges on a trajectory-snapshot diff. It is merge-blocking,
-  but a snapshot diff is not outcome grading (a diff can be green while the real
-  record is wrong), and it does not drive a computer-use agent.
+Column definitions are strict. **Outcome-graded** means the real-world state
+change is graded, not the agent's own trace or output. **Independent
+ground-truth channel** means a side-channel the agent cannot author.
+
+- **ASSERT** judges a trajectory against a policy with an LLM judge that reads
+  the trace the agent produced — no independent side-channel, no pass^k, no
+  gate, no computer-use surface.
+- **EvalView** blocks merges on a trajectory-snapshot diff. Merge-blocking, but a
+  snapshot diff is not outcome grading (a diff can be green while the real record
+  is wrong), its statistics are pass-rate tolerance (pass@k), not an all-k pass^k
+  floor, and it does not drive a computer-use agent.
+- **Braintrust and LangSmith** are the incumbents a buyer weighs first. They are
+  strong eval platforms: configurable evaluators, datasets, CI reporting. But an
+  evaluator scores the agent's *output or trace*, not an independent real-world
+  outcome; the shipped CI integrations report rather than block; and neither is a
+  computer-use two-witness gate.
+- **OpenComputer** is the closest on grading: it verifies CUA outcomes
+  programmatically against app state, and its own measurements put programmatic
+  verifiers at 113/120 human-verdict agreement versus 95/120 for an LLM judge —
+  direct support for grading from state, not the screen. But it is benchmark
+  infrastructure: no pass^k floor, no merge gate, no silent-corruption ledger.
+- **PreAct** is the closest to the two-witness idea (a clean-reset replay AND an
+  independent evaluator must agree), but only against benchmark oracles — no CI
+  gate and no corruption accounting.
 
 Maudslay is the only row with all five, because the five together are the wedge:
 **outcome-graded + independent ground-truth side-channel + pass^k +
-merge-blocking + computer-use.**
+merge-blocking + computer-use.** Adjacent tools hold one or two; none bundle the
+conjunction into a fail-closed merge gate. (Competitive sweep verified 2026-07;
+LangSmith and Skyvern were not independently re-verified in that sweep.)
+
+Already have your own agent and results? See [`docs/ADOPTING.md`](docs/ADOPTING.md)
+to run the pass^k math over them in five minutes, then wire the two witnesses for
+a real gate.
 
 ---
 

@@ -64,6 +64,8 @@ jobs:
         run: npm run trials -- --model stub
       - name: Merge-blocking gate
         run: npm run gate
+      - name: Import-adapter smoke (bring-your-own-results path)
+        run: npm run import -- tests/fixtures/external-results-sample.json --out var/import-report.json
 
   live:
     name: live model trials (key-gated)
