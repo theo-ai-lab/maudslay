@@ -107,9 +107,12 @@ that can move the floor upward on the same all-pass evidence.
   Growing the suite means adding tasks and raising `minTasks` — the gate already
   fails a report that covers fewer tasks than its floor requires.
 - **The gap the current suite has:** [DISCOVERY.md](DISCOVERY.md) §4 records it —
-  every trap is "should escalate," so over-escalation is unmeasured. There is no
-  "looks-ambiguous-but-is-actually-fulfillable" task yet, so `ESCALATED_WRONG`
-  (which the verifier grades) is never exercised by v0.
+  every LIVE trap is "should escalate." The verifier's over-escalation grading is
+  now unit-exercised in both directions (`tests/integrity-fixes.test.ts` FIX-10:
+  a fulfillable task refused → `ESCALATED_WRONG`, confirmed to be a failure that
+  is not a silent corruption), so the code path is no longer untested. What is
+  still pending is a *live* "looks-ambiguous-but-is-actually-fulfillable" task in
+  the suite that a real agent would face — that needs a golden and a run.
 - **No claim:** what a larger n would make the floor is **not measured** and is
   not predicted. Whether n=60 is already enough is set by the first real user's
   tolerance (item 1), not by us.
