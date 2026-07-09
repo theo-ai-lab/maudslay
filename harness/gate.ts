@@ -376,10 +376,48 @@ export function runGate(runsDir: string, ratchetPath: string): { report: GateRep
   return { report, code: report.outcome.pass ? 0 : 1 };
 }
 
+export const GATE_USAGE =
+  "usage: npm run gate [-- --json] [-- --help]\n" +
+  "  Reads runs/ and ratchet.json, evaluates the merge-blocking gate, and exits\n" +
+  "  0 (pass) or 1 (fail).\n" +
+  "  --json   emit the gate report as a single JSON object (for CI consumers)\n" +
+  "  --help   print this message and exit 0\n" +
+  "  For clean JSON on stdout, call `node harness/gate.ts --json` directly\n" +
+  "  (or `npm run --silent gate -- --json`) so npm's run banner is suppressed.";
+
+/** Machine-readable gate result — stable shape for CI consumers. */
+export function toGateJson(
+  report: GateReport,
+  code: number,
+): {
+  pass: boolean;
+  code: number;
+  detail: string | null;
+  failures: string[];
+  notes: string[];
+} {
+  return {
+    pass: report.outcome.pass,
+    code,
+    detail: report.outcome.pass ? report.outcome.detail : null,
+    failures: report.outcome.pass ? [] : report.outcome.failures,
+    notes: report.notes,
+  };
+}
+
 function main(): void {
+  const args = process.argv.slice(2);
+  if (args.includes("--help") || args.includes("-h")) {
+    process.stdout.write(`${GATE_USAGE}\n`);
+    process.exit(0);
+  }
   const runsDir = resolve(process.cwd(), "runs");
   const ratchetPath = resolve(process.cwd(), "ratchet.json");
   const { report, code } = runGate(runsDir, ratchetPath);
+  if (args.includes("--json")) {
+    process.stdout.write(`${JSON.stringify(toGateJson(report, code))}\n`);
+    process.exit(code);
+  }
   if (report.outcome.pass) {
     process.stdout.write(`GATE PASS — ${report.outcome.detail}\n`);
     for (const n of report.notes) process.stdout.write(`  note: ${n}\n`);

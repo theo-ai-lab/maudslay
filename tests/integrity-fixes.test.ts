@@ -697,3 +697,30 @@ test("FIX-10: ESCALATED_WRONG is neither a success nor a silent corruption", () 
     "over-escalation is safe — it must not count as a silent corruption",
   );
 });
+
+// --- FIX 11 (E5): machine-readable gate output for CI consumers ---------------
+import { toGateJson, GATE_USAGE } from "../harness/gate.ts";
+
+test("FIX-11: toGateJson emits a stable pass shape", () => {
+  const report = evaluateGate([flooredRun("live")], opusFloor);
+  const j = toGateJson(report, 0);
+  assert.equal(j.pass, true);
+  assert.equal(j.code, 0);
+  assert.deepEqual(j.failures, []);
+  assert.equal(typeof j.detail, "string");
+  assert.ok(Array.isArray(j.notes));
+});
+
+test("FIX-11: toGateJson emits failures on a failing gate", () => {
+  const report = evaluateGate([flooredRun("live", { failTasks: 6, reportPassK: 1 })], opusFloor);
+  const j = toGateJson(report, 1);
+  assert.equal(j.pass, false);
+  assert.equal(j.code, 1);
+  assert.ok(j.failures.length > 0, "a failing gate must carry failure strings in JSON");
+  assert.equal(j.detail, null);
+});
+
+test("FIX-11: gate --help usage documents --json", () => {
+  assert.match(GATE_USAGE, /--json/);
+  assert.match(GATE_USAGE, /--help/);
+});
