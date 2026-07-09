@@ -11,14 +11,20 @@ agent.
 
 Write your results as a `maudslay.external-results/1` file:
 
+Every task needs **exactly `k`** trials (fewer cannot compute pass^k; more would
+make the result depend on trial order, so it is rejected). This example uses
+`k: 2`:
+
 ```json
 {
   "schema": "maudslay.external-results/1",
   "model": "my-agent-v3",
-  "k": 5,
+  "k": 2,
   "trials": [
     { "taskId": "checkout", "trialIndex": 0, "outcome": "success" },
-    { "taskId": "checkout", "trialIndex": 1, "outcome": "failure" }
+    { "taskId": "checkout", "trialIndex": 1, "outcome": "failure" },
+    { "taskId": "refund", "trialIndex": 0, "outcome": "success" },
+    { "taskId": "refund", "trialIndex": 1, "outcome": "success" }
   ]
 }
 ```
@@ -51,7 +57,8 @@ prints this on every run.
   is the `outcome`; the workflow/prompt id is the `taskId`.
 - **Anything else** — you only need `taskId`, `trialIndex`, and
   `success`/`failure`. `trialIndex` must be unique per task, and every task must
-  have at least `k` trials.
+  have **exactly `k`** trials (down-select deliberately if your framework ran
+  more — the tool will not silently pick which `k` to grade).
 
 ## 2. Gate for real (the two-witness path)
 

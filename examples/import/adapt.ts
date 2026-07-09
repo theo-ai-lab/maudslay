@@ -121,12 +121,18 @@ export function adapt(
     flat.push({ taskId: t.taskId, verdict: t.outcome === "success" ? "OK" : "MISSING" });
   });
 
-  // Ragged data that cannot support pass^k at the declared k fails closed —
-  // the same rule the gate applies to its own artifacts.
+  // EXACTLY k trials per task, fail closed otherwise. Fewer than k cannot
+  // support pass^k. MORE than k is worse than it looks: buildPassKReport grades
+  // the first k trials in file order, so a task with extra trials produces an
+  // order-dependent, gameable pass^k (move a failure past position k and the
+  // task flips to PASS) while its failures still drag the CP floor. Requiring
+  // exactly k makes slice(0, k) cover every trial, so the result is
+  // order-invariant and cannot hide an observed failure.
   for (const [taskId, count] of perTaskCount) {
-    if (count < raw.k) {
+    if (count !== raw.k) {
       throw new ImportValidationError(
-        `task "${taskId}" has ${count} trial(s) but k=${raw.k} — cannot compute pass^${raw.k}; failing closed`,
+        `task "${taskId}" has ${count} trial(s) but needs exactly k=${raw.k} — ` +
+          `fewer cannot compute pass^${raw.k}, more makes it order-dependent; failing closed`,
       );
     }
   }

@@ -42,11 +42,18 @@ test("import: provenance is loud — source self-reported, outcomeVerified false
   assert.equal(wrapped.outcomeVerified, false);
 });
 
-test("import: trial order does not change the report", () => {
+test("import: trial order does not change the aggregate numbers (exactly-k)", () => {
+  // With exactly-k enforced, slice(0,k) covers every trial, so the headline
+  // aggregates are order-invariant. (perTask is first-seen order, which may
+  // differ; the numbers that matter must not.)
+  const forward = adapt(sample(), AT).report;
   const s = sample();
   s.trials.reverse();
-  const { report } = adapt(s, AT);
-  assert.equal(report.passK, 0.5);
+  const reversed = adapt(s, AT).report;
+  assert.equal(reversed.passK, forward.passK);
+  assert.equal(reversed.perTrialPassRate, forward.perTrialPassRate);
+  assert.equal(reversed.perTrialLowerBound95, forward.perTrialLowerBound95);
+  assert.equal(reversed.silentCorruptions, forward.silentCorruptions);
 });
 
 const bad: Array<[string, (s: ReturnType<typeof sample>) => void]> = [
@@ -68,6 +75,14 @@ for (const [name, mutate] of bad) {
     assert.throws(() => adapt(s, AT), ImportValidationError, `${name} must throw ImportValidationError`);
   });
 }
+
+test("import: a task with MORE than k trials fails closed (order-gameable otherwise)", () => {
+  // Without exactly-k, buildPassKReport grades slice(0,k) in file order, so
+  // moving a failure past position k would flip the task to PASS. Reject it.
+  const s = sample();
+  s.trials.push({ taskId: "checkout-flow", trialIndex: 2, outcome: "failure" });
+  assert.throws(() => adapt(s, AT), ImportValidationError, "count > k must fail closed, not grade file order");
+});
 
 test("import: schema constant is the documented external-results id", () => {
   assert.equal(EXTERNAL_RESULTS_SCHEMA, "maudslay.external-results/1");
