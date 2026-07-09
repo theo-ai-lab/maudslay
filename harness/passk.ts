@@ -224,6 +224,9 @@ export function buildPassKReport(
     passK: perTask.length === 0 ? 0 : perTask.filter((t) => t.passAllK).length / perTask.length,
     perTrialPassRate: trialsTotal === 0 ? 0 : successes / trialsTotal,
     perTrialLowerBound95: clopperPearsonLower(successes, trialsTotal),
+    // Task-level bound: one Bernoulli draw per TASK (all-k pass or not), so the
+    // clustering of trials within a task cannot inflate the effective n.
+    taskLowerBound95: clopperPearsonLower(perTask.filter((t) => t.passAllK).length, perTask.length),
     trialsTotal,
     silentCorruptions,
     escalationRate: trialsTotal === 0 ? 0 : escalations / trialsTotal,

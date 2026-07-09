@@ -92,9 +92,14 @@ run. The floor scales with evidence; the point estimate does not.
   looser than 94.0%. The all-pass case blunts this (every task and every trial
   succeeded, so there is no observed between-task variance to widen the
   interval), but it does not erase it: read 94.0% as the per-trial floor under an
-  independence assumption, not a task-clustered one. A task-level bound (12
-  clusters, not 60 trials) is the honest next refinement once a run has failures
-  to show between-task spread.
+  independence assumption, not a task-clustered one. The **task-level bound** is
+  therefore computed too (`taskLowerBound95` in
+  [`harness/passk.ts`](../harness/passk.ts)): each task's all-k outcome is one
+  Bernoulli draw, so clustering cannot inflate the effective n. For the committed
+  run (12/12 tasks passing all k) it is `0.025^(1/12) = 0.7354` — a **73.5%**
+  floor on the per-task all-k success rate. Looser, because 12 honest clusters
+  carry less evidence than 60 assumed-independent trials — that gap IS the
+  clustering caveat, stated as a number.
 - **"95% lower bound" is the two-sided interval's lower endpoint** — the α/2 =
   2.5% quantile, `0.025^(1/n)`. As a one-sided statement it is a **97.5%** lower
   bound, i.e. conservative in the safe direction: the real one-sided 95% floor

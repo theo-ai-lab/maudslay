@@ -208,6 +208,15 @@ export interface PassKReport {
   perTrialPassRate: number;
   /** Clopper–Pearson 95% lower bound on per-trial success — "the floor". */
   perTrialLowerBound95: number;
+  /**
+   * Clopper–Pearson 95% lower bound at the TASK level: each task's all-k
+   * outcome is one Bernoulli draw (s = tasks passing all k, n = tasks). Trials
+   * cluster k-per-task, so the per-trial bound leans on an i.i.d. assumption
+   * the data cannot fully support; this bound does not. It is looser (n is
+   * smaller) but assumption-honest. Optional: absent on artifacts written
+   * before it existed.
+   */
+  taskLowerBound95?: number;
   trialsTotal: number;
   silentCorruptions: number; // MUST be 0 to pass any gate
   escalationRate: number;
