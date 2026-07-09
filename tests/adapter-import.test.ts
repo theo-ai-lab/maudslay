@@ -105,3 +105,22 @@ test("import CLI: parseArgs reads input + --out", () => {
   assert.equal(a.input, "results.json");
   assert.equal(a.out, "var/x.json");
 });
+
+// --- CLI symlink hardening: a symlinked parent into runs/ is still refused ----
+import { mkdtempSync, mkdirSync, symlinkSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+
+test("import CLI: a symlinked ancestor pointing into runs/ is refused", () => {
+  const base = mkdtempSync(join(tmpdir(), "maudslay-symlink-"));
+  try {
+    mkdirSync(join(base, "runs", "inner"), { recursive: true });
+    symlinkSync(join(base, "runs", "inner"), join(base, "link")); // link -> .../runs/inner
+    assert.throws(
+      () => assertSafeOutPath(join(base, "link", "report.json")),
+      ImportValidationError,
+      "a symlinked ancestor into runs/ must be caught by the realpath check",
+    );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
