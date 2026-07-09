@@ -242,6 +242,12 @@ npm run trials -- --model stub
 npm run gate            # exit 0 = plumbing-green; labelled "no live runs yet"
 ```
 
+The gate has `--help`, and `node harness/gate.ts --json` emits a stable
+`{pass, code, detail, failures, notes}` object for a CI step to parse (the exit
+code is derived from the result, so it can never contradict `pass`). Already have
+your own agent's results? `npm run import -- your-results.json` runs the pass^k
+math over them — see [`docs/ADOPTING.md`](docs/ADOPTING.md).
+
 Live run (key-gated — this is the only path that produces a real pass^k):
 
 ```bash

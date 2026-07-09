@@ -1,8 +1,27 @@
 {
-  "$comment": "Merge-blocking floors per model. minPassK ratchets UP from a real live run's measured pass^k; it is never a number nobody measured. maxSilentCorruptions is hard-zero for every model. minTasks is the required task coverage (v0 suite = 12). k is the trials-per-task the floor is defined at. claude-opus-4-8 is set to 0.9 from a measured k=5 run that scored pass^5=1.0 (60/60): the floor sits deliberately below the point estimate so one flaky trial does not fail the gate, while a real 2+-task regression does. Unmeasured models stay at 0 until their first live run.",
+  "$comment": "Merge-blocking floors per model. minPassK ratchets UP from a real live run's measured pass^k; it is never a number nobody measured. maxSilentCorruptions is hard-zero for every model. minTasks is the required task coverage (v0 suite = 12). k is the trials-per-task the floor is defined at. claude-opus-4-8 is set to 0.9 from a measured k=5 run that scored pass^5=1.0 (60/60): the floor sits deliberately below the point estimate so one flaky trial does not fail the gate, while a real 2+-task regression does. Unmeasured models stay at 0 until their first live run. claude-opus-4-8 also carries a pinnedArtifact (generatedAt + sha256 of the committed run's raw bytes): the gate verifies the selected artifact hashes to the pin, so a deleted-newest rollback or an edited/replaced artifact fails closed. Re-pin deliberately when a new measurement lands.",
   "models": {
-    "claude-fable-5": { "minPassK": 0, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 },
-    "claude-opus-4-8": { "minPassK": 0.9, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 },
-    "claude-sonnet-4-6": { "minPassK": 0, "k": 5, "maxSilentCorruptions": 0, "minTasks": 12 }
+    "claude-fable-5": {
+      "minPassK": 0,
+      "k": 5,
+      "maxSilentCorruptions": 0,
+      "minTasks": 12
+    },
+    "claude-opus-4-8": {
+      "minPassK": 0.9,
+      "k": 5,
+      "maxSilentCorruptions": 0,
+      "minTasks": 12,
+      "pinnedArtifact": {
+        "generatedAt": "2026-07-05T05:46:13.562Z",
+        "sha256": "188466c6a63fe0fafb98e7f93dbe57afb9c38e5237218512852d283884b857f1"
+      }
+    },
+    "claude-sonnet-4-6": {
+      "minPassK": 0,
+      "k": 5,
+      "maxSilentCorruptions": 0,
+      "minTasks": 12
+    }
   }
 }
