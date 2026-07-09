@@ -12,6 +12,8 @@
  */
 
 import { test, before, after } from "node:test";
+import { rmSync } from "node:fs";
+import { openDb } from "../sim/db.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import net from "node:net";
@@ -523,4 +525,15 @@ test("unknown seed is rejected by admin", async () => {
   const r = await req("POST", `${ADMIN}/reset?seed=does-not-exist`);
   assert.equal(r.status, 400);
   assert.equal(JSON.parse(r.body).ok, false);
+});
+
+test("openDb sets a busy timeout so cross-process contention waits, not throws", () => {
+  const db = openDb("var/sim.busytest.sqlite");
+  const row = db.prepare("PRAGMA busy_timeout").get() as { timeout: number };
+  db.close();
+  rmSync("var/sim.busytest.sqlite", { force: true });
+  assert.ok(
+    row.timeout >= 2000,
+    `busy_timeout must be >= 2000ms (a concurrent suite/sim run must wait, not SQLITE_BUSY); got ${row.timeout}`,
+  );
 });
