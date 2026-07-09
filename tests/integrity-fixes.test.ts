@@ -786,3 +786,24 @@ test("FIX-13: two artifacts sharing model+generatedAt are a fail-closed problem"
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- FIX 14 (round-4 cross-model): malformed ratchet top-level fails closed ---
+test("FIX-14: a ratchet whose top level is not {models: object} fails closed", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-shape-"));
+  try {
+    const path = join(dir, "ratchet.json");
+    for (const bad of ["[]", '{"models": null}', '{"models": "x"}', '"just a string"', "42"]) {
+      writeFileSync(path, bad);
+      const { problems } = loadRatchetAudit(path);
+      assert.ok(
+        problems.length > 0,
+        `${bad} must be a named problem, not silently zero floors`,
+      );
+    }
+    // The bootstrap shell is still fine: a real object with an empty models map.
+    writeFileSync(path, '{"models": {}}');
+    assert.equal(loadRatchetAudit(path).problems.length, 0, "an empty models object is legitimate");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

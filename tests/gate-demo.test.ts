@@ -29,4 +29,15 @@ test("action threshold check — meets, misses, and fails closed", () => {
   assert.ok(/self-reported/.test(checkThreshold(report, 0.4).detail), "provenance must travel in the verdict");
   assert.throws(() => checkThreshold({ schema: "other" }, 0.5), ImportValidationError);
   assert.throws(() => checkThreshold(report, 1.5), ImportValidationError);
+  // Tampered reports fail closed: an out-of-range passK, or provenance stripped.
+  assert.throws(
+    () => checkThreshold({ ...report, report: { passK: 2, k: 2 } }, 0.5),
+    ImportValidationError,
+    "passK=2 cannot satisfy any threshold",
+  );
+  assert.throws(
+    () => checkThreshold({ ...report, outcomeVerified: true }, 0.5),
+    ImportValidationError,
+    "a report claiming outcome verification is not an import report",
+  );
 });
