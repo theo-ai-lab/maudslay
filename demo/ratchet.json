@@ -1,0 +1,11 @@
+{
+  "$comment": "DEMONSTRATION config for `npm run gate:demo` \u2014 a deliberately regressed fixture, not a live-model measurement. The demo exists to SHOW the gate blocking.",
+  "models": {
+    "demo-agent": {
+      "minPassK": 0.9,
+      "k": 2,
+      "maxSilentCorruptions": 0,
+      "minTasks": 3
+    }
+  }
+}

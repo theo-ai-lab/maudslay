@@ -1,0 +1,94 @@
+{
+  "schema": "maudslay.run/1",
+  "model": "demo-agent",
+  "mode": "live",
+  "k": 2,
+  "generatedAt": "2026-07-09T00:00:00.000Z",
+  "report": {
+    "model": "demo-agent",
+    "k": 2,
+    "generatedAt": "2026-07-09T00:00:00.000Z",
+    "perTask": [
+      {
+        "taskId": "invoice-close",
+        "trials": [
+          "OK",
+          "OK"
+        ],
+        "passAllK": true
+      },
+      {
+        "taskId": "refund-approve",
+        "trials": [
+          "MISSING",
+          "OK"
+        ],
+        "passAllK": false
+      },
+      {
+        "taskId": "record-update",
+        "trials": [
+          "WRONG_RECORD",
+          "OK"
+        ],
+        "passAllK": false
+      }
+    ],
+    "passK": 0.3333333333333333,
+    "perTrialPassRate": 0.6666666666666666,
+    "perTrialLowerBound95": 0.0,
+    "trialsTotal": 6,
+    "silentCorruptions": 1,
+    "escalationRate": 0.0
+  },
+  "trials": [
+    {
+      "taskId": "invoice-close",
+      "trialIndex": 0,
+      "verdict": "OK",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    },
+    {
+      "taskId": "invoice-close",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    },
+    {
+      "taskId": "refund-approve",
+      "trialIndex": 0,
+      "verdict": "MISSING",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    },
+    {
+      "taskId": "refund-approve",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    },
+    {
+      "taskId": "record-update",
+      "trialIndex": 0,
+      "verdict": "WRONG_RECORD",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    },
+    {
+      "taskId": "record-update",
+      "trialIndex": 1,
+      "verdict": "OK",
+      "steps": 3,
+      "durationMs": 900,
+      "trajectoryPath": ""
+    }
+  ]
+}

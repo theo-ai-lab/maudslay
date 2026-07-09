@@ -27,7 +27,7 @@ The core principle is **"the agent proposes, ground truth disposes."**
 
 ## Why this exists (the motivating literature)
 
-Three July-2026 findings, each cited, make the case for exactly this tool.
+Three 2026 findings, each cited, make the case for exactly this tool.
 
 - **Anthropic — [Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)**
   (Jan 2026). The recipe: use **pass^k** for consistency-critical agents (grade
@@ -244,9 +244,21 @@ npm run gate            # exit 0 = plumbing-green; labelled "no live runs yet"
 
 The gate has `--help`, and `node harness/gate.ts --json` emits a stable
 `{pass, code, detail, failures, notes}` object for a CI step to parse (the exit
-code is derived from the result, so it can never contradict `pass`). Already have
-your own agent's results? `npm run import -- your-results.json` runs the pass^k
-math over them — see [`docs/ADOPTING.md`](docs/ADOPTING.md).
+code is derived from the result, so it can never contradict `pass`). Want to see
+it refuse? `npm run gate:demo` runs the real gate over a deliberately regressed
+fixture and shows both failure classes blocking.
+
+Already have your own agent's results? Two lines in any repo's CI:
+
+```yaml
+- uses: theo-ai-lab/maudslay@main
+  with: { results: my-results.json, min-pass-k: "0.8" }
+```
+
+That runs the pass^k math over your framework's own trial results and fails the
+job below the floor — a regression tripwire over self-reported data (it cannot
+see silent corruption; the two-witness gate is what does). Locally it is
+`npm run import -- your-results.json`. See [`docs/ADOPTING.md`](docs/ADOPTING.md).
 
 Live run (key-gated — this is the only path that produces a real pass^k):
 

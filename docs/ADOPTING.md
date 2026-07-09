@@ -2,6 +2,18 @@
 
 Two ways in, honest about what each buys you.
 
+## 0. One CI step (the fastest path)
+
+```yaml
+- uses: theo-ai-lab/maudslay@main
+  with:
+    results: path/to/my-results.json   # maudslay.external-results/1
+    min-pass-k: "0.8"                  # optional: fail the job below this
+```
+
+Outputs `pass-k` and `report-path` for later steps. Same honest scope as the
+local reporter below: self-reported provenance, no silent-corruption detection.
+
 ## 1. Report on results you already have (5 minutes, no wiring)
 
 If your agent framework (Browser Use, Skyvern, a homegrown harness) already
