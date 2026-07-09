@@ -4,7 +4,9 @@
   "description": "Outcome-verified release gating for computer-use agents: pass^k measured against independent ground truth (confirmation email + backend state), never a second screen-scrape.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 tests/*.test.ts",
@@ -13,6 +15,7 @@
     "oracle": "node harness/oracle.ts",
     "trials": "node harness/trial-cli.ts",
     "gate": "node harness/gate.ts",
+    "gate:demo": "node harness/gate-demo.ts",
     "report": "node harness/report.ts",
     "promote": "node harness/promote.ts",
     "import": "node examples/import/cli.ts",

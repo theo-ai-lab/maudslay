@@ -1,0 +1,55 @@
+name: "Maudslay pass^k check"
+description: >-
+  Run Maudslay's pass^k reliability math over your agent framework's own trial
+  results and (optionally) fail the job below a threshold. Honest scope: this is
+  a regression tripwire over SELF-REPORTED results — it cannot detect silent
+  corruption. For two-witness outcome verification, see the repository's
+  docs/ADOPTING.md.
+author: theo-ai-lab
+branding:
+  icon: "shield"
+  color: "gray-dark"
+
+inputs:
+  results:
+    description: "Path (in your repo) to a maudslay.external-results/1 JSON file."
+    required: true
+  min-pass-k:
+    description: "Optional pass^k floor in [0,1]; the step fails below it. Omit to report only."
+    required: false
+    default: ""
+  out:
+    description: "Where to write the import report (never inside runs/)."
+    required: false
+    default: "maudslay-import-report.json"
+
+outputs:
+  pass-k:
+    description: "The computed pass^k (0..1) over the supplied results."
+    value: ${{ steps.report.outputs.pass-k }}
+  report-path:
+    description: "Path to the written import report."
+    value: ${{ steps.report.outputs.report-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node 24
+      uses: actions/setup-node@v4
+      with:
+        node-version: "24"
+    - name: pass^k report (self-reported provenance)
+      id: report
+      shell: bash
+      run: |
+        node "${{ github.action_path }}/examples/import/cli.ts" "${{ inputs.results }}" --out "${{ inputs.out }}"
+        node -e '
+          const r = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+          require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT,
+            `pass-k=${r.report.passK}\nreport-path=${process.argv[1]}\n`);
+        ' "${{ inputs.out }}"
+    - name: pass^k threshold
+      if: ${{ inputs.min-pass-k != '' }}
+      shell: bash
+      run: |
+        node "${{ github.action_path }}/examples/import/check.ts" "${{ inputs.out }}" --min-pass-k "${{ inputs.min-pass-k }}"
