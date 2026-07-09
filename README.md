@@ -113,6 +113,9 @@ a real gate.
 The gate never trusts the agent's claim that this succeeded — it reads the
 confirmation email and the backend record instead.*
 
+For the gate's full fail-closed decision flow — every reject edge and the order
+the checks run in — see [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md).
+
 The agent under test only ever sees **pixels** and only ever emits
 **computer-use actions**. Verification only ever reads two channels the agent
 does not author. Nothing lets a verifier read the screen, by construction.
@@ -144,7 +147,7 @@ does not author. Nothing lets a verifier read the screen, by construction.
                           │  verifier: expectation vs BOTH witnesses     │
                           │  → Verdict (OK / WRONG_RECORD / MISSING /    │
                           │    ESCALATED_OK / ACTED_ON_MUST_ESCALATE …)  │
-                          └───────────────────────────────────────────── ┘
+                          └─────────────────────────────────────────────┘
 ```
 
 **Two witnesses, two different reasons.** The email is an *independence* witness

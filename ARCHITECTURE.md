@@ -120,7 +120,8 @@ interaction only where no API exists" domain the AWS GA endorses.
   hard on any silent corruption; fails closed on unreadable artifact files and
   on configured floors with no artifact to enforce them against
   ([D5](docs/decisions/D5-gate-fail-closed-inputs.md)); no artifacts **and**
-  nothing ratcheted = labelled plumbing-only pass.
+  nothing ratcheted = labelled plumbing-only pass. The full decision flow is
+  diagrammed in [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md).
 - `report.ts` — renders the per-model markdown table from artifacts (never by
   hand).
 - `promote.ts` — promotes a discovered failure into a new golden.
