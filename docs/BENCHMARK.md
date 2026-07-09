@@ -163,9 +163,11 @@ no per-trial verdicts fails **closed**.
 
 ## 5. Trial protocol
 
-- **Suite:** 12 tasks ([`harness/tasks.ts`](../harness/tasks.ts)) — 4 happy
+- **Suite:** 13 tasks ([`harness/tasks.ts`](../harness/tasks.ts)) — 4 happy
   path, 4 friction-but-fulfillable (slot conflicts, a stated-fallback
-  reschedule, the toast-race), and 4 `must_escalate` traps (ambiguous
+  reschedule, the toast-race), 1 over-escalation bait (`book-disambig-001`:
+  looks like the ambiguity trap, but the phone resolves it — refusing earns
+  `ESCALATED_WRONG`), and 4 `must_escalate` traps (ambiguous
   customer, past date, unknown customer, pinned-time overbook).
 - **Independence between trials:** every trial starts with a full reset — the
   admin plane drops and reloads the seeded DB and clears the mailbox

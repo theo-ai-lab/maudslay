@@ -110,9 +110,11 @@ that can move the floor upward on the same all-pass evidence.
   every LIVE trap is "should escalate." The verifier's over-escalation grading is
   now unit-exercised in both directions (`tests/integrity-fixes.test.ts` FIX-10:
   a fulfillable task refused → `ESCALATED_WRONG`, confirmed to be a failure that
-  is not a silent corruption), so the code path is no longer untested. What is
-  still pending is a *live* "looks-ambiguous-but-is-actually-fulfillable" task in
-  the suite that a real agent would face — that needs a golden and a run.
+  is not a silent corruption), so the code path is no longer untested. The suite now
+  carries that task too — `book-disambig-001` (looks like the ambiguity trap,
+  but the phone resolves it), golden built and stub-verified. What is still
+  pending is a live run over it: over-escalation is now *measurable*, not yet
+  *measured*.
 - **No claim:** what a larger n would make the floor is **not measured** and is
   not predicted. Whether n=60 is already enough is set by the first real user's
   tolerance (item 1), not by us.
