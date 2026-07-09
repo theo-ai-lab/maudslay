@@ -84,6 +84,22 @@ near-100% reliability.** To push the same all-pass floor to 99% you would need
 `n ≥ ln(0.025)/ln(0.99) ≈ 367` consecutive successful trials — six times this
 run. The floor scales with evidence; the point estimate does not.
 
+**Two assumptions, stated so they are not hidden:**
+
+- **The bound treats the 60 trials as i.i.d. Bernoulli, but they cluster
+  5-per-task across 12 tasks.** If task difficulty is heterogeneous, the
+  *effective* sample size is smaller than 60 and the true 95% floor is somewhat
+  looser than 94.0%. The all-pass case blunts this (every task and every trial
+  succeeded, so there is no observed between-task variance to widen the
+  interval), but it does not erase it: read 94.0% as the per-trial floor under an
+  independence assumption, not a task-clustered one. A task-level bound (12
+  clusters, not 60 trials) is the honest next refinement once a run has failures
+  to show between-task spread.
+- **"95% lower bound" is the two-sided interval's lower endpoint** — the α/2 =
+  2.5% quantile, `0.025^(1/n)`. As a one-sided statement it is a **97.5%** lower
+  bound, i.e. conservative in the safe direction: the real one-sided 95% floor
+  sits slightly above 94.0%. We quote the more conservative number on purpose.
+
 ## 3. Outcome grading: two witnesses, never the screen
 
 A computer-use agent's whole job is to make the screen show success. If the
