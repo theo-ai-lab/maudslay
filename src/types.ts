@@ -227,9 +227,15 @@ export interface RatchetConfig {
        * exactly this `generatedAt`; a mismatch (the pinned newest was deleted so
        * an older passing run is selected, or a newer run supersedes it without a
        * deliberate ratchet update) fails the gate closed. Closes the
-       * newest-artifact-deletion residual (THREAT_MODEL G5).
+       * newest-artifact-deletion residual (THREAT_MODEL G5). Only meaningful on a
+       * measured floor (`minPassK > 0`); a pin on a dormant entry is rejected.
+       *
+       * `sha256`, when present, is verified against the selected artifact's raw
+       * file bytes — this upgrades the pin from timestamp-only to
+       * content-addressed, so a different artifact re-using the pinned
+       * `generatedAt` also fails closed.
        */
-      pinnedArtifact?: { generatedAt: string };
+      pinnedArtifact?: { generatedAt: string; sha256?: string };
     }
   >;
 }

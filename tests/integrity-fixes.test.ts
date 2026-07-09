@@ -703,7 +703,7 @@ import { toGateJson, GATE_USAGE } from "../harness/gate.ts";
 
 test("FIX-11: toGateJson emits a stable pass shape", () => {
   const report = evaluateGate([flooredRun("live")], opusFloor);
-  const j = toGateJson(report, 0);
+  const j = toGateJson(report);
   assert.equal(j.pass, true);
   assert.equal(j.code, 0);
   assert.deepEqual(j.failures, []);
@@ -713,7 +713,7 @@ test("FIX-11: toGateJson emits a stable pass shape", () => {
 
 test("FIX-11: toGateJson emits failures on a failing gate", () => {
   const report = evaluateGate([flooredRun("live", { failTasks: 6, reportPassK: 1 })], opusFloor);
-  const j = toGateJson(report, 1);
+  const j = toGateJson(report);
   assert.equal(j.pass, false);
   assert.equal(j.code, 1);
   assert.ok(j.failures.length > 0, "a failing gate must carry failure strings in JSON");
@@ -723,4 +723,46 @@ test("FIX-11: toGateJson emits failures on a failing gate", () => {
 test("FIX-11: gate --help usage documents --json", () => {
   assert.match(GATE_USAGE, /--json/);
   assert.match(GATE_USAGE, /--help/);
+});
+
+// --- FIX 12 (codex cross-model): content-addressed pin + pin needs a floor ----
+test("FIX-12: a content-addressed pin verifies the artifact's sha256", () => {
+  const shaFloor: RatchetConfig = {
+    models: {
+      "claude-opus-4-8": {
+        minPassK: 0.9, k: 5, maxSilentCorruptions: 0, minTasks: 12,
+        pinnedArtifact: { generatedAt: "2026-07-01T00:00:00.000Z", sha256: "deadbeef" },
+      },
+    },
+  };
+  const run = flooredRun("live");
+  const shas = new Map([[`claude-opus-4-8\n${run.generatedAt}`, "deadbeef"]]);
+  assert.equal(evaluateGate([run], shaFloor, [], [], shas).outcome.pass, true, "matching sha passes");
+  const wrong = new Map([[`claude-opus-4-8\n${run.generatedAt}`, "0000"]]);
+  assert.equal(evaluateGate([run], shaFloor, [], [], wrong).outcome.pass, false, "sha mismatch fails closed");
+  // No sha supplied at all (map empty) → a content pin that cannot be checked must fail closed.
+  assert.equal(evaluateGate([run], shaFloor).outcome.pass, false, "unverifiable content pin fails closed");
+});
+
+test("FIX-12: a pin on a dormant (minPassK=0) entry is rejected", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-pindorm-"));
+  try {
+    const ratchetPath = join(dir, "ratchet.json");
+    writeFileSync(ratchetPath, JSON.stringify({
+      models: { "claude-opus-4-8": { minPassK: 0, k: 5, maxSilentCorruptions: 0, minTasks: 12,
+        pinnedArtifact: { generatedAt: "2026-07-01T00:00:00.000Z" } } },
+    }));
+    const { problems } = loadRatchetAudit(ratchetPath);
+    assert.ok(problems.some((p) => /pinnedArtifact.*dormant|dormant.*pin/i.test(p)),
+      `a pin on a dormant entry must be rejected; got ${JSON.stringify(problems)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("FIX-12: toGateJson derives code from the report (no contradictory pass/code)", () => {
+  const failing = evaluateGate([flooredRun("live", { failTasks: 6, reportPassK: 1 })], opusFloor);
+  const j = toGateJson(failing);
+  assert.equal(j.pass, false);
+  assert.equal(j.code, 1, "a failing report must derive code 1, never a caller-supplied 0");
 });

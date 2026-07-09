@@ -9,7 +9,7 @@
  * must never be mistaken for one.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { adapt, toImportReport, PROVENANCE_BANNER, ImportValidationError } from "./adapt.ts";
 
@@ -19,15 +19,37 @@ const USAGE =
   "  writes a self-reported import-report to --out (default var/import-report.json).\n" +
   "  This is a REPORTER, not the two-witness gate — see docs/ADOPTING.md.";
 
-/** Refuse any --out that lands inside a runs/ directory. */
+/** Refuse any --out that lands inside a runs/ directory — checked both
+ * lexically and, to defeat a symlinked ancestor, against the realpath of the
+ * nearest existing ancestor directory. */
 export function assertSafeOutPath(out: string): string {
   const abs = resolve(out);
-  const parts = abs.split(sep);
-  if (parts.includes("runs")) {
-    throw new ImportValidationError(
-      `--out ${out} resolves inside a runs/ directory — self-reported reports must never sit with ` +
-        `two-witness gate artifacts; choose a path outside runs/`,
-    );
+  const reject = (p: string) => {
+    if (p.split(sep).includes("runs")) {
+      throw new ImportValidationError(
+        `--out ${out} resolves inside a runs/ directory — self-reported reports must never sit with ` +
+          `two-witness gate artifacts; choose a path outside runs/`,
+      );
+    }
+  };
+  reject(abs);
+  // Walk up to the first ancestor that exists on disk and resolve its symlinks;
+  // a symlinked parent pointing into runs/ would slip past the lexical check.
+  let dir = dirname(abs);
+  for (;;) {
+    let real: string;
+    try {
+      real = realpathSync(dir);
+    } catch {
+      // This ancestor does not exist yet — keep walking up. (Only realpathSync
+      // throws here; reject() runs OUTSIDE the try so its rejection propagates.)
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+      continue;
+    }
+    reject(real);
+    break;
   }
   return abs;
 }

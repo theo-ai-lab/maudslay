@@ -92,14 +92,25 @@ function parseRatchet(raw: unknown): { config: RatchetConfig; problems: string[]
         }
         // Optional rollback lock. A malformed pin (present but not { generatedAt: string })
         // is a floor being erased without signal — same treatment as a mistyped minPassK.
-        let pin: { generatedAt: string } | undefined;
+        let pin: { generatedAt: string; sha256?: string } | undefined;
         if ("pinnedArtifact" in c && c.pinnedArtifact !== undefined) {
           const p = c.pinnedArtifact as Record<string, unknown> | null;
-          if (p && typeof p === "object" && typeof p.generatedAt === "string") {
-            pin = { generatedAt: p.generatedAt };
+          const shaOk = p && (p.sha256 === undefined || typeof p.sha256 === "string");
+          if (p && typeof p === "object" && typeof p.generatedAt === "string" && shaOk) {
+            pin = { generatedAt: p.generatedAt, ...(typeof p.sha256 === "string" ? { sha256: p.sha256 } : {}) };
+            // A pin only means something on a MEASURED floor. Pinning a dormant
+            // (minPassK = 0) entry is a config mistake — it locks an artifact
+            // whose floor checks never run. Reject it.
+            const mpk = typeof c.minPassK === "number" ? c.minPassK : 0;
+            if (mpk <= 0) {
+              problems.push(
+                `ratchet config: ${id}.pinnedArtifact is set but minPassK=${mpk} (dormant) — ` +
+                  `a pin only applies to a measured floor; failing closed`,
+              );
+            }
           } else {
             problems.push(
-              `ratchet config: ${id}.pinnedArtifact is present but not { generatedAt: string } — failing closed`,
+              `ratchet config: ${id}.pinnedArtifact is present but not { generatedAt: string, sha256?: string } — failing closed`,
             );
           }
         }
@@ -166,6 +177,8 @@ export function evaluateGate(
   ratchet: RatchetConfig,
   invalidFiles: string[] = [],
   configProblems: string[] = [],
+  /** sha256 of each artifact's raw file bytes, keyed `${model}\n${generatedAt}`. */
+  contentShas: Map<string, string> = new Map(),
 ): GateReport {
   const latest = latestPerModel(runs);
   const failures: string[] = [];
@@ -226,6 +239,19 @@ export function evaluateGate(
         `${model}: ratchet pins artifact generatedAt=${pin.generatedAt} but the latest artifact is ` +
           `${run.generatedAt} — a deleted-newest rollback or an un-repinned supersession; failing closed`,
       );
+    } else if (pin.sha256 !== undefined) {
+      // Content-addressed pin: the selected artifact's raw bytes must hash to the
+      // pinned digest, so a different artifact re-using the pinned generatedAt
+      // (or an edit to the pinned one) fails closed. A missing sha (the map was
+      // not supplied, e.g. a pure unit test) also fails closed — a content pin
+      // that cannot be checked must never pass.
+      const actual = contentShas.get(`${model}\n${run.generatedAt}`);
+      if (actual !== pin.sha256) {
+        failures.push(
+          `${model}: ratchet pins artifact sha256=${pin.sha256} but the selected artifact hashes to ` +
+            `${actual ?? "<unavailable>"} — content mismatch or unverifiable pin; failing closed`,
+        );
+      }
     }
   }
 
@@ -370,9 +396,9 @@ export function evaluateGate(
 // --- CLI -------------------------------------------------------------------
 
 export function runGate(runsDir: string, ratchetPath: string): { report: GateReport; code: number } {
-  const { runs, invalid, problems: runProblems } = readRunsAudit(runsDir);
+  const { runs, invalid, problems: runProblems, shas } = readRunsAudit(runsDir);
   const { config, problems: configProblems } = loadRatchetAudit(ratchetPath);
-  const report = evaluateGate(runs, config, invalid, [...runProblems, ...configProblems]);
+  const report = evaluateGate(runs, config, invalid, [...runProblems, ...configProblems], shas);
   return { report, code: report.outcome.pass ? 0 : 1 };
 }
 
@@ -385,11 +411,10 @@ export const GATE_USAGE =
   "  For clean JSON on stdout, call `node harness/gate.ts --json` directly\n" +
   "  (or `npm run --silent gate -- --json`) so npm's run banner is suppressed.";
 
-/** Machine-readable gate result — stable shape for CI consumers. */
-export function toGateJson(
-  report: GateReport,
-  code: number,
-): {
+/** Machine-readable gate result — stable shape for CI consumers. The exit code
+ * is DERIVED from the report so a caller can never emit a contradictory
+ * `pass:false, code:0`. */
+export function toGateJson(report: GateReport): {
   pass: boolean;
   code: number;
   detail: string | null;
@@ -398,7 +423,7 @@ export function toGateJson(
 } {
   return {
     pass: report.outcome.pass,
-    code,
+    code: report.outcome.pass ? 0 : 1,
     detail: report.outcome.pass ? report.outcome.detail : null,
     failures: report.outcome.pass ? [] : report.outcome.failures,
     notes: report.notes,
@@ -415,7 +440,7 @@ function main(): void {
   const ratchetPath = resolve(process.cwd(), "ratchet.json");
   const { report, code } = runGate(runsDir, ratchetPath);
   if (args.includes("--json")) {
-    process.stdout.write(`${JSON.stringify(toGateJson(report, code))}\n`);
+    process.stdout.write(`${JSON.stringify(toGateJson(report))}\n`);
     process.exit(code);
   }
   if (report.outcome.pass) {

@@ -12,6 +12,7 @@
  */
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import type { PassKReport, VerdictCode } from "../src/types.ts";
 
@@ -74,6 +75,8 @@ export function readRunsAudit(dir: string): {
   runs: RunArtifact[];
   invalid: string[];
   problems: string[];
+  /** sha256 of each artifact's raw bytes, keyed `${model}\n${generatedAt}` — feeds content-addressed ratchet pins. */
+  shas: Map<string, string>;
 } {
   let names: string[];
   try {
@@ -84,7 +87,7 @@ export function readRunsAudit(dir: string): {
     // exist but cannot be seen — every artifact vanishing at once must never
     // read as "nothing measured".
     if ((e as NodeJS.ErrnoException).code === "ENOENT") {
-      return { runs: [], invalid: [], problems: [] };
+      return { runs: [], invalid: [], problems: [], shas: new Map() };
     }
     return {
       runs: [],
@@ -92,21 +95,28 @@ export function readRunsAudit(dir: string): {
       problems: [
         `runs directory at ${dir} exists but is unreadable (${(e as NodeJS.ErrnoException).code ?? "error"}) — failing closed`,
       ],
+      shas: new Map(),
     };
   }
   const runs: RunArtifact[] = [];
   const invalid: string[] = [];
+  const shas = new Map<string, string>();
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const parsed: unknown = JSON.parse(readFileSync(join(dir, name), "utf8"));
-      if (looksLikeRun(parsed)) runs.push(parsed);
-      else invalid.push(name);
+      const bytes = readFileSync(join(dir, name));
+      const parsed: unknown = JSON.parse(bytes.toString("utf8"));
+      if (looksLikeRun(parsed)) {
+        runs.push(parsed);
+        shas.set(`${parsed.model}\n${parsed.generatedAt}`, createHash("sha256").update(bytes).digest("hex"));
+      } else {
+        invalid.push(name);
+      }
     } catch {
       invalid.push(name);
     }
   }
-  return { runs, invalid, problems: [] };
+  return { runs, invalid, problems: [], shas };
 }
 
 /**

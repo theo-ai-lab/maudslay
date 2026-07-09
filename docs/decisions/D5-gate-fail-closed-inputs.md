@@ -84,6 +84,7 @@ artifact from a repo-write attacker (out of scope).
   `generatedAt` its measurement is read against. The gate requires the model's
   latest artifact to equal the pin, so the deleted-newest rollback residual
   (G5) fails closed; superseding the pin requires a deliberate ratchet re-pin,
-  visible in the PR diff. Content-tamper of the pinned artifact's trials remains
-  the acknowledged forged-well-formed-artifact residual (a per-file sha256 pin
-  is a future hardening — it needs the gate to see raw bytes, not parsed runs).
+  visible in the PR diff. An optional `sha256` on the pin closes content-tamper too: `readRunsAudit`
+  hashes each artifact's raw bytes and the gate verifies the pinned digest, so a
+  different artifact re-using the pinned `generatedAt`, or an edit to the pinned
+  one, fails closed. A pin is only accepted on a measured floor (minPassK > 0).
