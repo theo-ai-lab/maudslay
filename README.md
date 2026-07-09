@@ -7,6 +7,8 @@ second screen-scrape.**
 [![gate](https://github.com/theo-ai-lab/maudslay/actions/workflows/gate.yml/badge.svg)](https://github.com/theo-ai-lab/maudslay/actions/workflows/gate.yml)
 ![live pass^5](https://img.shields.io/badge/live%20pass%E2%81%B5%20(opus--4.8)-100%25%20%C2%B7%2094%25%20floor%20%C2%B7%200%20corruptions-brightgreen)
 
+**Jump:** [Quickstart](#quickstart) · [How the gate works](#how-the-gate-works-the-two-witness-design) · [Results](#per-model-results) · [Bring your own results](docs/ADOPTING.md)
+
 > **Status:** measured. A k=5 live run of `claude-opus-4-8` (60 trials) passed
 > every trial — **pass⁵ 100%, Clopper–Pearson 95% floor 94.0%, 0 silent
 > corruptions**, all 4 must-escalate traps correctly escalated. The harness, sim,
@@ -120,34 +122,15 @@ The agent under test only ever sees **pixels** and only ever emits
 **computer-use actions**. Verification only ever reads two channels the agent
 does not author. Nothing lets a verifier read the screen, by construction.
 
-```
-                          ┌─────────────────────────────────────────┐
-                          │  agent under test (Claude computer-use)  │
-                          └───────────────┬──────────────▲──────────┘
-                                pixels out │              │ screenshot in
-                                (click/type/scroll)       │ (base64 PNG)
-                          ┌───────────────▼──────────────┴──────────┐
-                          │  sandbox + executor (Playwright)         │
-                          │  origin allowlist · viewport bounds ·    │
-                          │  action budget · data-guard approval     │
-                          └───────────────┬──────────────────────────┘
-                                          │ drives the HTML UI
-                          ┌───────────────▼──────────────────────────┐
-                          │  HearthDesk sim  (no booking JSON API)    │
-                          │  127.0.0.1:4380 public UI                 │
-                          └───────┬───────────────────────┬──────────┘
-                                  │ sends confirmation      │ writes row
-                                  │ email on mutation       │
-                     ┌────────────▼─────────┐    ┌──────────▼───────────┐
-       WITNESS 1 →   │  SMTP sink / IMAP    │    │  SQLite backend      │  ← WITNESS 2
-       independence  │  (confirmation mail) │    │  admin GET /state    │  determinism
-                     └────────────┬─────────┘    └──────────┬───────────┘
-                                  │                          │
-                          ┌───────▼──────────────────────────▼──────────┐
-                          │  verifier: expectation vs BOTH witnesses     │
-                          │  → Verdict (OK / WRONG_RECORD / MISSING /    │
-                          │    ESCALATED_OK / ACTED_ON_MUST_ESCALATE …)  │
-                          └─────────────────────────────────────────────┘
+```mermaid
+graph TD
+  A["agent under test (Claude computer-use)"] -->|clicks / types / scrolls| X["sandbox + executor: origin allowlist, viewport bounds, action budget, data-guard approval"]
+  X -->|screenshot back, base64 PNG| A
+  X -->|drives the HTML UI| S["HearthDesk sim (no booking JSON API)"]
+  S -->|confirmation email on every mutation| W1["WITNESS 1: SMTP sink / IMAP (independence)"]
+  S -->|writes the durable row| W2["WITNESS 2: SQLite backend, admin GET /state (determinism)"]
+  W1 --> V["verifier: expectation vs BOTH witnesses → OK / WRONG_RECORD / MISSING / ESCALATED_OK / ACTED_ON_MUST_ESCALATE"]
+  W2 --> V
 ```
 
 **Two witnesses, two different reasons.** The email is an *independence* witness
@@ -204,13 +187,13 @@ The `$ / verified task` column comes from the metered usage ledger
 | Model | pass⁵ | Per-trial floor (Clopper–Pearson 95% LB) | Silent corruptions | Escalation rate | $ / verified task |
 |---|---|---|---|---|---|
 | `claude-opus-4-8` | **100.0%** (60/60 trials) | **94.0%** | **0** | 33.3% | ~$1.64 |
-| `claude-sonnet-4-6` | pending live run | pending live run | pending live run | pending live run | pending live run |
-| `claude-fable-5` * | pending live run | pending live run | pending live run | pending live run | pending live run |
+| `claude-sonnet-4-6` | *pending live run* | | | | |
+| `claude-fable-5` * | *pending live run* | | | | |
 
 > The `claude-opus-4-8` row is from one k=5 run (all 60 trials passed; 4 of the 12
 > tasks are must-escalate traps, all correctly escalated every trial). pass⁵=100%
-> is the point estimate; the **94.0% Clopper–Pearson floor is the honest number to
-> quote** — n=60 all-pass cannot claim more. `$ / verified task` is the real token
+> is the point estimate; **94.0%** is the Clopper–Pearson floor (why the floor is
+> the number to quote: [docs/BENCHMARK.md §2](docs/BENCHMARK.md)). `$ / verified task` is the real token
 > cost of a full 5-trial verification (~$1.64; the whole run was **$19.62**, which
 > prompt caching cut from ~$93.95 — see [docs/COST.md](docs/COST.md)).
 
@@ -242,11 +225,15 @@ npm run trials -- --model stub
 npm run gate            # exit 0 = plumbing-green; labelled "no live runs yet"
 ```
 
+![npm run gate — the real repository gate passing, with dormant floors named rather than hidden](docs/assets/gate-pass.png)
+
 The gate has `--help`, and `node harness/gate.ts --json` emits a stable
 `{pass, code, detail, failures, notes}` object for a CI step to parse (the exit
 code is derived from the result, so it can never contradict `pass`). Want to see
 it refuse? `npm run gate:demo` runs the real gate over a deliberately regressed
 fixture and shows both failure classes blocking.
+
+![npm run gate:demo — the gate refusing a deliberately regressed fixture: one silent corruption and a pass^2 floor miss, both blocking](docs/assets/gate-demo-red.png)
 
 Already have your own agent's results? Two lines in any repo's CI:
 
