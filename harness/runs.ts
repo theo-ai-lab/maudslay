@@ -100,6 +100,7 @@ export function readRunsAudit(dir: string): {
   }
   const runs: RunArtifact[] = [];
   const invalid: string[] = [];
+  const problems: string[] = [];
   const shas = new Map<string, string>();
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
@@ -107,8 +108,19 @@ export function readRunsAudit(dir: string): {
       const bytes = readFileSync(join(dir, name));
       const parsed: unknown = JSON.parse(bytes.toString("utf8"));
       if (looksLikeRun(parsed)) {
+        const key = `${parsed.model}\n${parsed.generatedAt}`;
+        // Two artifacts sharing a (model, generatedAt) identity collide the sha
+        // map and would let one silently shadow the other's content pin. The
+        // writeRun filename is derived from exactly that identity, so a
+        // collision only happens when a file was added by hand — fail closed.
+        if (shas.has(key)) {
+          problems.push(
+            `two run artifacts share model=${parsed.model} generatedAt=${parsed.generatedAt} — ` +
+              `an ambiguous identity that would shadow a content pin; failing closed`,
+          );
+        }
         runs.push(parsed);
-        shas.set(`${parsed.model}\n${parsed.generatedAt}`, createHash("sha256").update(bytes).digest("hex"));
+        shas.set(key, createHash("sha256").update(bytes).digest("hex"));
       } else {
         invalid.push(name);
       }
@@ -116,7 +128,7 @@ export function readRunsAudit(dir: string): {
       invalid.push(name);
     }
   }
-  return { runs, invalid, problems: [], shas };
+  return { runs, invalid, problems, shas };
 }
 
 /**

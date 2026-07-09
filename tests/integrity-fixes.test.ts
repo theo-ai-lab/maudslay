@@ -15,6 +15,7 @@ import { Executor } from "../executor/tools.ts";
 import type { ExecutorPage } from "../executor/tools.ts";
 import { Sandbox, defaultSandboxConfig, denyAllCallback } from "../executor/sandbox.ts";
 import { evaluateGate, loadRatchetAudit, runGate } from "../harness/gate.ts";
+import { readRunsAudit } from "../harness/runs.ts";
 import type { RunArtifact, RunTrialRecord } from "../harness/runs.ts";
 import { buildMessage } from "../sim/mailer.ts";
 import { applyCacheControl } from "../agent/model.ts";
@@ -765,4 +766,23 @@ test("FIX-12: toGateJson derives code from the report (no contradictory pass/cod
   const j = toGateJson(failing);
   assert.equal(j.pass, false);
   assert.equal(j.code, 1, "a failing report must derive code 1, never a caller-supplied 0");
+});
+
+// --- FIX 13: duplicate (model, generatedAt) artifacts fail closed ------------
+test("FIX-13: two artifacts sharing model+generatedAt are a fail-closed problem", () => {
+  const dir = mkdtempSync(join(tmpdir(), "maudslay-dup-"));
+  try {
+    const a = { schema: "maudslay.run/1", model: "m", mode: "live", k: 1,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      report: { model: "m", k: 1, generatedAt: "2026-07-01T00:00:00.000Z", perTask: [], passK: 1,
+        perTrialPassRate: 1, perTrialLowerBound95: 0, trialsTotal: 1, silentCorruptions: 0, escalationRate: 0 },
+      trials: [{ taskId: "a", trialIndex: 0, verdict: "OK", steps: 1, durationMs: 1, trajectoryPath: "x" }] };
+    writeFileSync(join(dir, "one.json"), JSON.stringify(a));
+    writeFileSync(join(dir, "two.json"), JSON.stringify({ ...a, k: 2 })); // same model+generatedAt, different bytes
+    const { problems } = readRunsAudit(dir);
+    assert.ok(problems.some((p) => /share model.*generatedAt|ambiguous identity/i.test(p)),
+      `duplicate identity must be a problem; got ${JSON.stringify(problems)}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
