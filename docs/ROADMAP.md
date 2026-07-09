@@ -103,7 +103,7 @@ that can move the floor upward on the same all-pass evidence.
 
 - **Mechanism already present:** k is a CLI flag (`npm run trials -- --k N`), and
   the suite size is enforced by `minTasks` in [`../ratchet.json`](../ratchet.json)
-  (v0 = 12, matching the 12 tasks in [`../harness/tasks.ts`](../harness/tasks.ts)).
+  (12 — the measured run's coverage; the suite has since grown to 13 tasks in [`../harness/tasks.ts`](../harness/tasks.ts), and `minTasks` ratchets up to match at the next live run, never before).
   Growing the suite means adding tasks and raising `minTasks` — the gate already
   fails a report that covers fewer tasks than its floor requires.
 - **The gap the current suite has:** [DISCOVERY.md](DISCOVERY.md) §4 records it —
