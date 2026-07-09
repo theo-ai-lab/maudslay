@@ -468,3 +468,30 @@ test("integration: oracle builds goldens; stub replays them to OK/ESCALATED_OK",
     await env.stop();
   }
 });
+
+// --- Task-level Clopper–Pearson bound (the 12-cluster bound BENCHMARK promises) --
+test("buildPassKReport carries a task-level CP lower bound (clusters, not trials)", () => {
+  // 12 tasks, k=2, all passing: the task-level bound treats each TASK as one
+  // Bernoulli outcome (all-k pass or not), so s=12, n=12 → 0.025^(1/12).
+  const allPass = Array.from({ length: 12 }, (_, i) => [
+    { taskId: `t${i}`, verdict: "OK" as const },
+    { taskId: `t${i}`, verdict: "OK" as const },
+  ]).flat();
+  const r = buildPassKReport("m", 2, allPass, "2026-07-09T00:00:00.000Z");
+  assert.ok(Math.abs((r.taskLowerBound95 ?? -1) - Math.pow(0.025, 1 / 12)) < 1e-9,
+    `expected 0.025^(1/12)=${Math.pow(0.025, 1 / 12)}, got ${r.taskLowerBound95}`);
+});
+
+test("task-level bound uses passAllK counts, not per-trial successes", () => {
+  // 2 tasks, k=2: task A passes both, task B fails one trial → s=1, n=2.
+  // Per-trial rate is 3/4 but the task-level bound must be CP(1, 2).
+  const trials = [
+    { taskId: "a", verdict: "OK" as const },
+    { taskId: "a", verdict: "OK" as const },
+    { taskId: "b", verdict: "OK" as const },
+    { taskId: "b", verdict: "MISSING" as const },
+  ];
+  const r = buildPassKReport("m", 2, trials, "2026-07-09T00:00:00.000Z");
+  assert.ok(Math.abs((r.taskLowerBound95 ?? -1) - clopperPearsonLower(1, 2)) < 1e-12,
+    `expected CP(1,2)=${clopperPearsonLower(1, 2)}, got ${r.taskLowerBound95}`);
+});
