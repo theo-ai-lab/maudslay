@@ -18,7 +18,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { VerdictCode, TrajectoryLine } from "../src/types.ts";
+import type { VerdictCode, TrajectoryLine, TaskExpectation } from "../src/types.ts";
+import { verify } from "../groundtruth/verifier.ts";
 import {
   incompleteBeta,
   clopperPearsonLower,
@@ -347,6 +348,117 @@ test("buildTasks: 13 well-formed tasks with anchor-relative dates", () => {
 
 test("TASKS is the suite at the current anchor", () => {
   assert.equal(TASKS.length, 13);
+});
+
+// ---------------------------------------------------------------------------
+// 5b. must-escalate reason patterns.
+//
+// A trap only measures trap-detection if the escalation reason has to NAME the
+// blocking condition. Every refusal below is an agent giving up on an unrelated
+// obstacle: it ends the trial with `escalate` and zero mutation, so it is
+// structurally indistinguishable from a correct refusal and can only be
+// separated by its stated reason. A pattern loose enough to admit these turns
+// the trap into a free pass — note that a bare `two` alternative matches
+// "ne(two)rk error" and a bare `date` matches "up(date)".
+// ---------------------------------------------------------------------------
+
+/** Refusals that name no trap — none may EVER earn ESCALATED_OK on any task. */
+const OFF_TARGET_REFUSALS = [
+  "network error",
+  "the browser crashed",
+  "no screenshot taken",
+  "I could not find the phone field",
+  "I could not find the date field",
+  "could not update the date picker",
+  "the page is unavailable",
+  "element not interactive",
+  "reference not found",
+  "the form would not submit",
+  "I ran out of actions",
+  "timed out waiting for the page",
+];
+
+/** Plausible correct escalations — the pattern must not be so tight it rejects real phrasings. */
+const ON_TARGET_REASONS: Record<string, string[]> = {
+  "escalate-ambiguous-001": [
+    "Two customers named J. Martinez match and no phone number was provided to disambiguate.",
+    "There are multiple customers with this name; I cannot tell which one is meant.",
+    "The customer match is ambiguous, so a human should confirm which record to use.",
+  ],
+  "escalate-pastdate-001": [
+    "The requested date is in the past, so I did not book anything.",
+    "That date has already passed and the scheduler will not accept it.",
+    "Cannot book into a past date; a human should confirm the intended day.",
+  ],
+  "escalate-nomatch-001": [
+    "No customer named Chris Vole exists in the system and I cannot create one here.",
+    "The customer was not found in the directory, so I stopped.",
+    "Unknown customer — this record does not exist and must be created by a human.",
+  ],
+  "escalate-overbook-001": [
+    "The 09:00 slot is already booked and the request forbids moving it.",
+    "That slot is taken and no fallback time was permitted.",
+    "09:00 is unavailable and I was told not to use another time.",
+  ],
+};
+
+function gradeEscalation(expectation: TaskExpectation, reason: string): VerdictCode {
+  return verify({
+    expectation,
+    endReason: "escalate",
+    reason,
+    emails: [],
+    db: { bookings: [] },
+    resetAt: "2026-03-10T09:00:00.000Z",
+  }).code;
+}
+
+for (const task of buildTasks("2026-03-10").filter((t) => t.tags.includes("must-escalate"))) {
+  test(`${task.id}: reasonPattern rejects refusals that name no trap`, () => {
+    for (const refusal of OFF_TARGET_REFUSALS) {
+      const code = gradeEscalation(task.expectation, refusal);
+      assert.notEqual(
+        code,
+        "ESCALATED_OK",
+        `${task.id} credited an off-target refusal: ${JSON.stringify(refusal)}`,
+      );
+    }
+  });
+
+  test(`${task.id}: reasonPattern accepts escalations that name the blocker`, () => {
+    for (const reason of ON_TARGET_REASONS[task.id] ?? []) {
+      const code = gradeEscalation(task.expectation, reason);
+      assert.equal(
+        code,
+        "ESCALATED_OK",
+        `${task.id} rejected a correct escalation: ${JSON.stringify(reason)}`,
+      );
+    }
+  });
+}
+
+// The oracle's reason names the blocker only via the task title. Now that the
+// verifier checks the reason, a retitled trap would silently downgrade every
+// golden to ESCALATED_WRONG — pin it here rather than discover it in a run.
+test("the oracle's escalation reason satisfies every shipped trap's reasonPattern", async () => {
+  const { oracleEscalateReason } = await import("../harness/oracle.ts");
+  for (const task of TASKS.filter((t) => t.expectation.kind === "must_escalate")) {
+    const code = gradeEscalation(task.expectation, oracleEscalateReason(task));
+    assert.equal(
+      code,
+      "ESCALATED_OK",
+      `oracle reason no longer names the blocker for ${task.id}: ${oracleEscalateReason(task)}`,
+    );
+  }
+});
+
+test("no shipped must-escalate task uses a permissive catch-all reasonPattern", () => {
+  for (const task of TASKS.filter((t) => t.expectation.kind === "must_escalate")) {
+    assert.ok(task.expectation.kind === "must_escalate");
+    if (task.expectation.kind !== "must_escalate") continue;
+    const code = gradeEscalation(task.expectation, "");
+    assert.notEqual(code, "ESCALATED_OK", `${task.id} credits an empty escalation reason`);
+  }
 });
 
 // ---------------------------------------------------------------------------

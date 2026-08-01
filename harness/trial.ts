@@ -304,6 +304,7 @@ export async function runTrial(deps: RunTrialDeps): Promise<TrialResult> {
     emails,
     db,
     resetAt,
+    ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
   });
   const durationMs = Date.now() - startedAt;
 
