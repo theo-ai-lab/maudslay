@@ -105,6 +105,18 @@ outcome still has to show up on both durable witnesses to grade `OK`.
   testable without a browser, and impossible to accidentally point back at the
   screen. No Playwright import exists outside `executor/`.
 
+## Independent is not the same as informative
+
+Everything above establishes that the verdicts are *independent of the agent*. It
+says nothing about whether they can tell a good agent from a bad one — a metric a
+do-nothing agent also scores well on measures nothing, however clean its evidence
+chain. That is a separate claim and it is attacked separately, by running the
+grader against agents that are deliberately bad:
+
+**[`DISCRIMINATION.md`](DISCRIMINATION.md)** — the adversarial audit
+(`npm run saboteur`), the measured noise floor, and the open holes it found,
+including one this repo used to score 1.000 on.
+
 ## Naming
 
 The project is named for Henry Maudslay, whose bench micrometer was the shop's

@@ -87,8 +87,10 @@ export function verify(input: VerifyInput): Verdict {
 
   let email: WitnessFinding;
   let db: WitnessFinding;
+  let targetRef: string | undefined;
   if (expectation.kind === "booking_created") {
     ({ email, db } = evaluateCreated(expectation.booking, parsed, input.db));
+    targetRef = parsed.find((x) => x.p.kind === "created")?.p.ref;
   } else if (expectation.kind === "booking_rescheduled") {
     ({ email, db } = evaluateRescheduled(
       expectation.ref,
@@ -97,12 +99,48 @@ export function verify(input: VerifyInput): Verdict {
       input.db,
       input.resetAt,
     ));
+    targetRef = expectation.ref;
   } else {
     ({ email, db } = evaluateCancelled(expectation.ref, parsed, input.db));
+    targetRef = expectation.ref;
+  }
+
+  // Grading only the RECORD THAT WAS ASKED FOR lets an agent satisfy the letter
+  // of the check and still break the goal: book the requested slot correctly and
+  // ALSO book three that nobody asked for, and every field the verifier looks at
+  // agrees. The customer gets appointments they never requested and the number
+  // says OK. Any booking touched after the restore point that is not this task's
+  // target is collateral damage, and collateral damage is silent corruption.
+  for (const ref of collateralMutations(input, targetRef)) {
+    db.mismatches.push({
+      field: `collateral:${ref}`,
+      expected: "no booking other than the requested one is touched",
+      actual: `booking ${ref} was created or modified after the restore point`,
+    });
   }
 
   const { code, explanation } = mapFulfillable(email, db, input.endReason);
   return { code, findings: [email, db], explanation };
+}
+
+/**
+ * Refs of bookings mutated after the restore point that are NOT this task's
+ * target. Undatable rows (no timestamps) are not reported — this detector is
+ * for extra work the agent did, and an undatable row cannot be attributed to
+ * this trial at all. Without `resetAt` nothing here is datable, so it reports
+ * nothing rather than guessing.
+ */
+function collateralMutations(input: VerifyInput, targetRef: string | undefined): string[] {
+  const reset = input.resetAt;
+  if (reset === undefined) return [];
+  const out: string[] = [];
+  for (const r of input.db.bookings) {
+    if (targetRef !== undefined && r.ref === targetRef) continue;
+    const created = r.createdAt !== undefined && r.createdAt > reset;
+    const updated = r.updatedAt !== undefined && r.updatedAt > reset;
+    if (created || updated) out.push(r.ref);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

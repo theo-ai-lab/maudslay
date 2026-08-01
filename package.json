@@ -16,6 +16,7 @@
     "trials": "node harness/trial-cli.ts",
     "gate": "node harness/gate.ts",
     "audit": "node harness/audit.ts",
+    "saboteur": "node harness/saboteur.ts",
     "gate:demo": "node harness/gate-demo.ts",
     "report": "node harness/report.ts",
     "promote": "node harness/promote.ts",
