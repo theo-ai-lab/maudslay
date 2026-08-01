@@ -14,7 +14,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -560,6 +560,7 @@ test("integration: oracle builds goldens; stub replays them to OK/ESCALATED_OK",
     const stub = makeStubPolicy(join(goldensDir, "book-simple-001.jsonl"));
     const replayDir = mkdtempSync(join(tmpdir(), "maudslay-replay-"));
     try {
+      const trajectoryPath = join(replayDir, "book-simple-001-0.jsonl");
       const tr = await runTrial({
         task: createTask,
         trialIndex: 0,
@@ -569,9 +570,21 @@ test("integration: oracle builds goldens; stub replays them to OK/ESCALATED_OK",
         adminBase: env.adminBase,
         publicBase: env.publicBase,
         mailDir: env.mailDir,
-        trajectoryPath: join(replayDir, "book-simple-001-0.jsonl"),
+        trajectoryPath,
       });
       assert.equal(tr.verdict.code, "OK", tr.verdict.explanation);
+
+      // A real trial must leave evidence that can be re-derived FROM, not just a
+      // verdict to read back: the raw witnesses it graded have to be on disk, and
+      // re-executing the verifier over them must reproduce the recorded verdict.
+      // tests/audit.test.ts proves the audit on hand-built fixtures; this is the
+      // only place that proves runTrial itself writes what the audit needs.
+      const raw = readFileSync(trajectoryPath, "utf8");
+      assert.ok(raw.includes('"t":"witness"'), "runTrial persisted no witness line");
+      const { auditTrajectoryFile } = await import("../harness/audit.ts");
+      const audited = auditTrajectoryFile(trajectoryPath);
+      assert.equal(audited.status, "agree", audited.detail);
+      assert.equal(audited.recomputed, "OK");
     } finally {
       rmSync(replayDir, { recursive: true, force: true });
     }

@@ -19,7 +19,10 @@
  */
 
 import type {
+  AgentEndReason,
   CapturedEmail,
+  DbBookingRow,
+  DbStateSnapshot,
   ExpectedBooking,
   TaskExpectation,
   Verdict,
@@ -28,35 +31,10 @@ import type {
 } from "../src/types.ts";
 import { parseConfirmationBody, type ParsedEmail } from "./email-parse.ts";
 
-/** One backend booking row, as exposed by the sim's admin GET /state. */
-export interface DbBookingRow {
-  ref: string;
-  status: "active" | "cancelled";
-  customerName?: string;
-  phone?: string;
-  serviceType?: string;
-  date?: string;
-  time?: string;
-  addressLine?: string;
-  notes?: string;
-  /** ISO timestamp; lets the db witness date a mutation against reset. */
-  createdAt?: string;
-  /** ISO timestamp bumped on reschedule/cancel — dates in-place mutations. */
-  updatedAt?: string;
-}
-
-/** The backend-state snapshot the verifier is GIVEN (never fetched here). */
-export interface DbStateSnapshot {
-  bookings: DbBookingRow[];
-}
-
-/** Mirrors TrajectoryTerminal.endReason in src/types.ts. */
-export type AgentEndReason =
-  | "done"
-  | "escalate"
-  | "budget_exhausted"
-  | "sandbox_blocked"
-  | "error";
+// These shapes are declared in src/types.ts (the single source of truth for
+// cross-module contracts, now that a trajectory persists a witness snapshot);
+// re-exported here so callers can keep importing them from the verifier.
+export type { AgentEndReason, DbBookingRow, DbStateSnapshot };
 
 export interface VerifyInput {
   expectation: TaskExpectation;
