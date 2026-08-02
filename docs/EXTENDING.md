@@ -260,8 +260,9 @@ gives the gate its hard invariant.
 7. Get stub replay and the gate plumbing-green, key-free
    (`npm run trials -- --model stub && npm run gate`).
 8. Run live trials; the artifact under `runs/` is the first measured number
-   your domain has. Ratchet `ratchet.json` up from it — floors are never
-   hand-set to a number nobody measured.
+   your domain has. Ratchet `ratchet.json` up from it. Set the floor at or just
+   below the measured value and say which you chose: a floor may be derived from
+   a measurement with a stated margin, but it must never be invented from none.
 
 ### Why this compounds
 

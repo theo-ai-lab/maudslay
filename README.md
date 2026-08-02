@@ -204,8 +204,12 @@ default computer-use model is `claude-opus-4-8`.
 
 Silent corruptions must be **0** for any model to pass the gate. The
 `ratchet.json` floors start at `minPassK: 0` and ratchet **up** from the first
-real run's measured pass^k — a floor is never hand-set to a number nobody
-measured.
+real run's measured pass^k. A floor is never invented: it is always derived from
+a measurement, though not always equal to one. `claude-opus-4-8` measured
+pass^5 = 1.0 (60/60) and its floor is set to **0.9** — one notch below the point
+estimate, deliberately, so a single flaky trial does not fail the gate while a
+two-task regression still does. That 0.9 is a judgement about variance, not an
+observation, and it is written down here rather than presented as measured.
 
 ---
 
