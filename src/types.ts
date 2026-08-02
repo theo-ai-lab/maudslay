@@ -135,11 +135,49 @@ export interface DbBookingRow {
   createdAt?: string;
   /** ISO timestamp bumped on reschedule/cancel — dates in-place mutations. */
   updatedAt?: string;
+  /**
+   * Owning technician. Slots are keyed by (technician, date, time), so without
+   * this a row cannot be attributed to the slot it occupies. Optional: rows
+   * from a backend that does not expose it are reported as unchecked by
+   * `slotOccupancyCheck`, never assumed consistent.
+   */
+  techId?: number;
+}
+
+/** One slot's occupancy, as exposed by the sim's admin GET /state. */
+export interface DbSlotRow {
+  techId: number;
+  /** ISO date "YYYY-MM-DD" */
+  date: string;
+  /** 24h "HH:MM" slot start */
+  time: string;
+  /**
+   * The backend's own word for the slot's state, verbatim and uninterpreted
+   * ("open" | "held" | "booked" in this sim). Kept raw on purpose: a witness
+   * records what the backend said; deciding what it MEANS is the checker's job.
+   */
+  status: string;
 }
 
 /** The backend-state snapshot the verifier is GIVEN (never fetched by it). */
 export interface DbStateSnapshot {
   bookings: DbBookingRow[];
+  /**
+   * Slot occupancy, when the backend reported it.
+   *
+   * ABSENT IS NOT EMPTY. `undefined` means the payload carried no slot table at
+   * all — every trajectory recorded before this field existed, and any backend
+   * adapter that cannot expose one. `[]` means the backend reported a table
+   * with zero slots. Consumers must report the first case as "not witnessed"
+   * instead of reading it as "nothing is booked"; `slotOccupancyCheck` does.
+   *
+   * This is an OBSERVABILITY field, added because the sim emitted slot state
+   * that the witness threw away: the verifier was trusting the backend to keep
+   * bookings and slots agreed rather than witnessing that it does. No verdict
+   * reads it — grading is identical with and without it (see
+   * docs/VERIFICATION.md, "What the backend witness now carries").
+   */
+  slots?: DbSlotRow[];
 }
 
 /**

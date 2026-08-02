@@ -76,7 +76,9 @@ interaction only where no API exists" domain the AWS GA endorses.
   body.
 - `verifier.ts` — the two-witness verdict engine. Given a task expectation, the
   captured emails, and a backend-state snapshot, it returns a `Verdict`. It reads
-  plain data only.
+  plain data only. It also exposes `slotOccupancyCheck`, which reads the backend
+  snapshot's slot table against its booking table — an observability check that
+  reports and never grades ([D6](docs/decisions/D6-slot-occupancy-witness.md)).
 - `imap-live.ts` — a documented, credential-gated interface stub for the live
   IMAP mode (same verifier code, a real inbox instead of the sink). Marked as an
   interface, not fake-implemented.

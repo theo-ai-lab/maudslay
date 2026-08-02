@@ -70,6 +70,54 @@ If only one witness confirms, the verdict is `MISSING` — not durably verified.
 a witness carries the record but a field disagrees, the verdict is
 `WRONG_RECORD` — a silent corruption that fails the gate outright.
 
+## What the backend witness now carries
+
+The backend witness is the booking table **and** the slot table. It did not
+always carry both: the sim's admin `GET /state` emitted every slot's status from
+the start, but the snapshot handed to the verifier kept only `bookings` and
+dropped the rest on arrival.
+
+Nothing was mis-graded by that, and nothing here is a bug fix. The divergence
+you would care about — an active booking whose slot is not reserved — is not
+reachable through the surface the agent has: the sim writes the booking row and
+flips the slot in adjacent synchronous statements, and a create on a taken slot
+is refused before a commit token exists (`The 09:00 slot on 2026-08-03 is
+already booked.`). What was missing was not correctness. It was *evidence*.
+
+That gap mattered anyway, for the same reason the rest of this document exists.
+A verifier that cannot see slot occupancy is **trusting the backend to maintain
+an invariant instead of witnessing that it does** — a quieter version of trusting
+the screen. The trust is invisible, so if the sim's commit path were reordered,
+or a real backend were wired in behind the same snapshot shape, the gate would
+keep passing and nothing would report that the evidence no longer covered the
+claim.
+
+So the raw slot table is now carried into the witness and persisted with it, and
+`slotOccupancyCheck` (`groundtruth/verifier.ts`) states the invariant as code:
+
+- an **active** booking implies its slot is booked;
+- a **cancelled** booking implies its slot is free, unless another active
+  booking has since taken it.
+
+Three properties of that check are worth stating plainly:
+
+- **It reports; it does not grade.** No `VerdictCode` depends on it. A run's
+  verdicts are identical with and without the slot table. The invariant is
+  enforced by the test suite, which asserts it over every state witnessed along
+  a seeded random walk of the real sim — including samples taken straight
+  through the toast-race commit lag — and separately proves the checker is not
+  vacuous by injecting divergences it must catch.
+- **Absent is not empty.** A witness with no slot table (every trajectory
+  recorded before the field existed) reports *"occupancy was not witnessed"*, not
+  *"nothing is booked"*. Rows that cannot be compared come back as `unchecked`
+  with a reason. The check never invents a value it did not observe.
+- **The converse is not claimed.** "A booked slot implies a booking row" is false
+  on purpose — the seed pre-books slots with no visible booking row, and that is
+  the friction the conflict and must-escalate tasks are built on.
+
+Full reasoning, including what was deliberately left undone:
+[`decisions/D6-slot-occupancy-witness.md`](decisions/D6-slot-occupancy-witness.md).
+
 ## The toast-race example (why this is not academic)
 
 One seed (`book-toast-race-001`) reproduces the classic reason screen-scrape
