@@ -125,7 +125,7 @@ oracle afterwards and re-check the whole suite, not just your task.
 ### 4. Generate the golden
 
 ```sh
-npm run oracle -- <task-id>        # one task; omit ids to rebuild all 12+
+npm run oracle -- <task-id>        # one task; omit ids to rebuild the whole suite
 ```
 
 The oracle ([`harness/oracle.ts`](../harness/oracle.ts)) is benchmark
@@ -149,7 +149,7 @@ npm run gate                                       # must stay green
 Then update the places that pin the suite size:
 
 - [`tests/harness.test.ts`](../tests/harness.test.ts) asserts the suite is
-  exactly 12 well-formed tasks — grow the count with the suite.
+  exactly 13 well-formed tasks — grow the count with the suite.
 - [`ratchet.json`](../ratchet.json) sets `minTasks: 12` per model. Ratchet it
   **up** to the new count so coverage can never silently shrink. Never down.
 

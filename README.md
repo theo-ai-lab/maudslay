@@ -264,6 +264,13 @@ Full 5-minute local runbook: [`DEMO.md`](DEMO.md).
 
 - [docs/VERIFICATION.md](docs/VERIFICATION.md) — why screen-scrape verification
   is circular, the two-witness design, and the toast-race that proves it.
+- [docs/DISCRIMINATION.md](docs/DISCRIMINATION.md) — the adversarial audit
+  (`npm run saboteur`): what a zero-capability agent scores on this suite, the
+  resulting noise floor a headline should be read against, and the open holes
+  it found. Read it before quoting any number above.
+- [docs/BENCHMARK.md](docs/BENCHMARK.md) — the measurement methodology: pass^k,
+  the Clopper–Pearson floor and its stated assumptions, and the k=5 run worked
+  through end to end.
 - [SECURITY.md](SECURITY.md) — the agent ingests hostile page content; what the
   sandbox's `data-guard` approval gate blocks, and what the gate does and does
   **not** guarantee.
