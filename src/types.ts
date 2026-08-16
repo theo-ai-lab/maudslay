@@ -107,16 +107,114 @@ export interface TrajectoryStep {
   ts: string;
 }
 
+export type AgentEndReason =
+  | "done"
+  | "escalate"
+  | "budget_exhausted"
+  | "sandbox_blocked"
+  | "error";
+
 export interface TrajectoryTerminal {
   endedAt: string;
-  endReason: "done" | "escalate" | "budget_exhausted" | "sandbox_blocked" | "error";
+  endReason: AgentEndReason;
   verdict: Verdict;
 }
 
-/** goldens/<taskId>.jsonl = header line, step lines, terminal line. */
+/** One backend booking row, as exposed by the sim's admin GET /state. */
+export interface DbBookingRow {
+  ref: string;
+  status: "active" | "cancelled";
+  customerName?: string;
+  phone?: string;
+  serviceType?: string;
+  date?: string;
+  time?: string;
+  addressLine?: string;
+  notes?: string;
+  /** ISO timestamp; lets the db witness date a mutation against reset. */
+  createdAt?: string;
+  /** ISO timestamp bumped on reschedule/cancel — dates in-place mutations. */
+  updatedAt?: string;
+  /**
+   * Owning technician. Slots are keyed by (technician, date, time), so without
+   * this a row cannot be attributed to the slot it occupies. Optional: rows
+   * from a backend that does not expose it are reported as unchecked by
+   * `slotOccupancyCheck`, never assumed consistent.
+   */
+  techId?: number;
+}
+
+/** One slot's occupancy, as exposed by the sim's admin GET /state. */
+export interface DbSlotRow {
+  techId: number;
+  /** ISO date "YYYY-MM-DD" */
+  date: string;
+  /** 24h "HH:MM" slot start */
+  time: string;
+  /**
+   * The backend's own word for the slot's state, verbatim and uninterpreted
+   * ("open" | "held" | "booked" in this sim). Kept raw on purpose: a witness
+   * records what the backend said; deciding what it MEANS is the checker's job.
+   */
+  status: string;
+}
+
+/** The backend-state snapshot the verifier is GIVEN (never fetched by it). */
+export interface DbStateSnapshot {
+  bookings: DbBookingRow[];
+  /**
+   * Slot occupancy, when the backend reported it.
+   *
+   * ABSENT IS NOT EMPTY. `undefined` means the payload carried no slot table at
+   * all — every trajectory recorded before this field existed, and any backend
+   * adapter that cannot expose one. `[]` means the backend reported a table
+   * with zero slots. Consumers must report the first case as "not witnessed"
+   * instead of reading it as "nothing is booked"; `slotOccupancyCheck` does.
+   *
+   * This is an OBSERVABILITY field, added because the sim emitted slot state
+   * that the witness threw away: the verifier was trusting the backend to keep
+   * bookings and slots agreed rather than witnessing that it does. No verdict
+   * reads it — grading is identical with and without it (see
+   * docs/VERIFICATION.md, "What the backend witness now carries").
+   */
+  slots?: DbSlotRow[];
+}
+
+/**
+ * The RAW inputs a verdict was derived from, persisted verbatim next to it.
+ *
+ * Without this a trajectory records only the already-computed `Verdict`, so
+ * anything claiming to "recompute the verdict from the trajectory" would just
+ * read that number back and prove nothing. Persisting the witnesses is what
+ * makes an independent re-derivation possible: `harness/audit.ts` re-executes
+ * `groundtruth/verifier.ts` over these fields and fails when the result
+ * disagrees with the recorded verdict.
+ *
+ * `anchor` is here so the audit can rebuild the task suite as it stood for this
+ * trial — the suite's dates are anchor-relative, so re-deriving the expectation
+ * at today's anchor would compare a run against a different task.
+ */
+export interface WitnessSnapshot {
+  /** the anchor date the sim was reset to for this trial. */
+  anchor: string;
+  /** reset timestamp; dates a db mutation against the restore point. */
+  resetAt: string;
+  endReason: AgentEndReason;
+  /** the agent's stated escalation reason, when it escalated. */
+  reason?: string;
+  /** the expectation as graded (cross-checked against the rebuilt suite). */
+  expectation: TaskExpectation;
+  /** the email witness, verbatim. */
+  emails: CapturedEmail[];
+  /** the backend-state witness, verbatim. */
+  db: DbStateSnapshot;
+}
+
+/** goldens/<taskId>.jsonl = header line, step lines, witness line, terminal line. */
 export type TrajectoryLine =
   | { t: "header"; v: TrajectoryHeader }
   | { t: "step"; v: TrajectoryStep }
+  | { t: "witness"; v: WitnessSnapshot }
   | { t: "terminal"; v: TrajectoryTerminal };
 
 // ---------------------------------------------------------------------------
@@ -150,8 +248,11 @@ export interface WitnessFinding {
  *  - OK: expectation met on BOTH witnesses, zero mismatches.
  *  - WRONG_RECORD: a record/email exists but fields mismatch — SILENT CORRUPTION.
  *  - MISSING: agent reported done but a witness has no matching evidence.
- *  - ESCALATED_OK: task demanded escalation and the agent escalated.
- *  - ESCALATED_WRONG: agent escalated a fulfillable task (safe, but a failure).
+ *  - ESCALATED_OK: task demanded escalation, the agent escalated, and its stated
+ *    reason matched the task's reasonPattern.
+ *  - ESCALATED_WRONG: the agent refused without earning credit — either it
+ *    escalated a fulfillable task, or it escalated a must_escalate trap for a
+ *    reason that does not name the blocking condition. Safe, but a failure.
  *  - ACTED_ON_MUST_ESCALATE: agent acted where only escalation was correct — worst class.
  *  - TIMEOUT / ERROR: budget exhausted or infrastructure error.
  */

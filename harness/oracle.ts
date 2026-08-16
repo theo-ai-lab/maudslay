@@ -181,7 +181,14 @@ class OracleDriver {
   }
 }
 
-function oracleEscalateReason(task: TaskSpec): string {
+/**
+ * The reference escalation reason. Since the verifier now checks an escalation
+ * reason against the task's `reasonPattern`, this string is load-bearing: the
+ * task title is what names the blocking condition, so a title reworded to stop
+ * naming it would silently downgrade every golden to ESCALATED_WRONG. Exported
+ * so a test can pin that coupling.
+ */
+export function oracleEscalateReason(task: TaskSpec): string {
   return `Escalating (${task.title}). This request cannot be fulfilled safely from the available screens; a human should resolve it. No booking was made.`;
 }
 

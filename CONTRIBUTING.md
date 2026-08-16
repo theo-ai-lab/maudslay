@@ -35,8 +35,12 @@ The 5-minute walkthrough with expectations per step is [DEMO.md](DEMO.md).
 Handy while developing: `npm run sim` (the app alone), `npm run sink` (the
 SMTP sink alone), `npm run mcp` (ground truth over stdio), `npm run report`
 (render the per-model table from `runs/`), `npm run promote` (failure →
-regression). `MAUDSLAY_TODAY=YYYY-MM-DD` pins the sim's date anchor for
-reproducible sessions.
+regression), `npm run audit -- runs` (re-derive every recorded verdict from the
+raw witnesses), `npm run saboteur` (the adversarial audit — see
+[docs/DISCRIMINATION.md](docs/DISCRIMINATION.md)), `npm run gate:demo` (watch
+the gate refuse a deliberately regressed fixture).
+`MAUDSLAY_TODAY=YYYY-MM-DD` pins the sim's date anchor for reproducible
+sessions.
 
 ## Module boundaries
 

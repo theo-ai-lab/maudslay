@@ -22,6 +22,7 @@ import type {
   CapturedEmail,
   ModelConfig,
   TrajectoryLine,
+  WitnessSnapshot,
 } from "../src/types.ts";
 import { PORTS, VAR_DIRS } from "../src/types.ts";
 import { launchBrowser } from "../executor/browser.ts";
@@ -264,7 +265,7 @@ export interface RunTrialDeps {
 
 export async function runTrial(deps: RunTrialDeps): Promise<TrialResult> {
   const { task } = deps;
-  const { resetAt } = await resetSim(deps.adminBase, task.seed);
+  const { resetAt, anchor } = await resetSim(deps.adminBase, task.seed);
   await deps.session.page.goto(`${deps.publicBase}/`);
 
   const recorder = new Recorder(deps.trajectoryPath);
@@ -298,12 +299,29 @@ export async function runTrial(deps: RunTrialDeps): Promise<TrialResult> {
     task.expectation,
     deps.settleMaxMs,
   );
-  const verdict = verify({
-    expectation: task.expectation,
+  // Persist the RAW inputs before the verdict they produce. A trajectory that
+  // carries only the computed verdict cannot be re-derived from — any "recompute
+  // from the trajectory" pass would just read the recorded number back. With the
+  // witnesses on disk, `npm run audit` re-executes the verifier over them and
+  // fails when the recorded verdict disagrees.
+  const witness: WitnessSnapshot = {
+    anchor,
+    resetAt,
     endReason: outcome.endReason,
+    expectation: task.expectation,
     emails,
     db,
-    resetAt,
+    ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
+  };
+  recorder.witness(witness);
+
+  const verdict = verify({
+    expectation: witness.expectation,
+    endReason: witness.endReason,
+    emails: witness.emails,
+    db: witness.db,
+    resetAt: witness.resetAt,
+    ...(witness.reason !== undefined ? { reason: witness.reason } : {}),
   });
   const durationMs = Date.now() - startedAt;
 

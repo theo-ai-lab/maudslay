@@ -204,8 +204,12 @@ default computer-use model is `claude-opus-4-8`.
 
 Silent corruptions must be **0** for any model to pass the gate. The
 `ratchet.json` floors start at `minPassK: 0` and ratchet **up** from the first
-real run's measured pass^k — a floor is never hand-set to a number nobody
-measured.
+real run's measured pass^k. A floor is never invented: it is always derived from
+a measurement, though not always equal to one. `claude-opus-4-8` measured
+pass^5 = 1.0 (60/60) and its floor is set to **0.9** — one notch below the point
+estimate, deliberately, so a single flaky trial does not fail the gate while a
+two-task regression still does. That 0.9 is a judgement about variance, not an
+observation, and it is written down here rather than presented as measured.
 
 ---
 
@@ -264,6 +268,13 @@ Full 5-minute local runbook: [`DEMO.md`](DEMO.md).
 
 - [docs/VERIFICATION.md](docs/VERIFICATION.md) — why screen-scrape verification
   is circular, the two-witness design, and the toast-race that proves it.
+- [docs/DISCRIMINATION.md](docs/DISCRIMINATION.md) — the adversarial audit
+  (`npm run saboteur`): what a zero-capability agent scores on this suite, the
+  resulting noise floor a headline should be read against, and the open holes
+  it found. Read it before quoting any number above.
+- [docs/BENCHMARK.md](docs/BENCHMARK.md) — the measurement methodology: pass^k,
+  the Clopper–Pearson floor and its stated assumptions, and the k=5 run worked
+  through end to end.
 - [SECURITY.md](SECURITY.md) — the agent ingests hostile page content; what the
   sandbox's `data-guard` approval gate blocks, and what the gate does and does
   **not** guarantee.

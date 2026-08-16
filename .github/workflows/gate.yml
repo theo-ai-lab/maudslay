@@ -62,6 +62,11 @@ jobs:
         run: npm run oracle
       - name: Stub-replay trials (plumbing, not capability)
         run: npm run trials -- --model stub
+      # Re-derives every verdict by re-running the verifier over the raw
+      # witnesses persisted with each trial, and fails if a recorded verdict
+      # disagrees. Reading the recorded verdict back would prove nothing.
+      - name: Re-derive verdicts from raw witnesses
+        run: npm run audit -- runs
       - name: Merge-blocking gate
         run: npm run gate
       - name: Watch the gate block (fixture demonstration)

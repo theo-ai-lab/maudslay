@@ -76,7 +76,9 @@ interaction only where no API exists" domain the AWS GA endorses.
   body.
 - `verifier.ts` — the two-witness verdict engine. Given a task expectation, the
   captured emails, and a backend-state snapshot, it returns a `Verdict`. It reads
-  plain data only.
+  plain data only. It also exposes `slotOccupancyCheck`, which reads the backend
+  snapshot's slot table against its booking table — an observability check that
+  reports and never grades ([D6](docs/decisions/D6-slot-occupancy-witness.md)).
 - `imap-live.ts` — a documented, credential-gated interface stub for the live
   IMAP mode (same verifier code, a real inbox instead of the sink). Marked as an
   interface, not fake-implemented.
@@ -104,8 +106,9 @@ interaction only where no API exists" domain the AWS GA endorses.
 - `approval.ts` — the `ApprovalPolicy` implementations (auto-log / cli / mcp).
 
 ### `harness/` — trials, statistics, and the gate
-- `tasks.ts` — the 12-task golden suite (happy paths, friction/conflict,
-  `must_escalate` traps) per [D2](docs/decisions/D2-task-suite.md).
+- `tasks.ts` — the 13-task golden suite (happy paths, friction/conflict, an
+  over-escalation bait, and `must_escalate` traps) per
+  [D2](docs/decisions/D2-task-suite.md).
 - `trial.ts` / `trial-cli.ts` — reset sim → run policy → verify → restore;
   produce `TrialResult`; the `npm run trials` entry point.
 - `oracle.ts` — the scripted driver that *knows* the sim and records golden
@@ -122,9 +125,16 @@ interaction only where no API exists" domain the AWS GA endorses.
   ([D5](docs/decisions/D5-gate-fail-closed-inputs.md)); no artifacts **and**
   nothing ratcheted = labelled plumbing-only pass. The full decision flow is
   diagrammed in [`docs/DIAGRAMS.md`](docs/DIAGRAMS.md).
+- `ratchet.ts` — fail-closed parsing of `ratchet.json`: a missing file is the
+  bootstrap no-op, a corrupt or mistyped one is a gate failure.
 - `report.ts` — renders the per-model markdown table from artifacts (never by
   hand).
 - `promote.ts` — promotes a discovered failure into a new golden.
+- `audit.ts` — re-executes the verifier over the raw witnesses persisted with
+  each trial and fails when a recorded verdict does not re-derive.
+- `saboteur.ts` — the adversarial audit: a seeded family of deliberately bad
+  agents, graded by the real verifier, that measures whether the metric
+  discriminates at all ([docs/DISCRIMINATION.md](docs/DISCRIMINATION.md)).
 
 ### `mcp/` — ground truth over MCP
 - `server.ts` — a zero-dependency stdio JSON-RPC 2.0 MCP server exposing the

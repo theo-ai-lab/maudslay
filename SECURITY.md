@@ -116,7 +116,7 @@ Being explicit about the boundary is part of the security posture. The gate does
   be *caught after the fact* by the two-witness verifier. Marking coverage is a
   maintained invariant of the sim, not an automatic property.
 - **Does not** guarantee a passing gate means the agent is safe to deploy. A
-  green gate means: on this fixed 12-task suite, at the configured k, this model
+  green gate means: on this fixed task suite, at the configured k, this model
   met its ratchet floor and produced zero witnessed silent corruptions. It is a
   floor on measured reliability for a specific suite — not a proof of general
   safety, and not a claim about tasks outside the suite.

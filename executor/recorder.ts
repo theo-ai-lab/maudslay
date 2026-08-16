@@ -11,6 +11,7 @@ import type {
   TrajectoryHeader,
   TrajectoryStep,
   TrajectoryTerminal,
+  WitnessSnapshot,
 } from '../src/types.ts';
 
 export class Recorder {
@@ -31,6 +32,11 @@ export class Recorder {
 
   step(v: TrajectoryStep): void {
     this.write({ t: 'step', v });
+  }
+
+  /** the raw witnesses a verdict is derived from — written before the terminal. */
+  witness(v: WitnessSnapshot): void {
+    this.write({ t: 'witness', v });
   }
 
   terminal(v: TrajectoryTerminal): void {

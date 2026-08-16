@@ -562,7 +562,7 @@ test("BENCHMARK's task-level floor derives from the committed artifact", () => {
   // The only results number without a pin until now. Recompute the task-level
   // CP bound straight from the committed opus artifact; when a re-pinned run
   // changes the task count, this goes red until the doc is re-derived.
-  const artifactName = readdirSync("runs").find(
+  const artifactName = readdirSync(resolve(root, "runs")).find(
     (f) => f.startsWith("claude-opus-4-8-") && f.endsWith(".json"),
   );
   assert.ok(artifactName, "committed opus artifact must exist");

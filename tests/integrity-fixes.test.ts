@@ -438,8 +438,8 @@ test("FIX-7: an honest live floored run still passes all integrity cross-checks"
 });
 
 test("FIX-7: deleting a failing task's trials ENTIRELY cannot satisfy the floor", () => {
-  // Cross-model review finding: coverage came from the self-reported
-  // report.perTask while pass^k derived only from tasks still carrying trials —
+  // Coverage used to come from the self-reported report.perTask while pass^k
+  // derived only from tasks still carrying trials —
   // so removing a bad task's records wholesale (and syncing report.passK to the
   // survivors) passed every check. Coverage must be trial-derived too.
   const run = flooredRun("live");
@@ -453,8 +453,8 @@ test("FIX-7: deleting a failing task's trials ENTIRELY cannot satisfy the floor"
 });
 
 test("FIX-7: duplicating an OK trial to replace a deleted failure is caught", () => {
-  // Cross-model review finding: the under-k check counted records, not unique
-  // trial indexes — delete the one failing trial, duplicate a passing one, and
+  // The under-k check used to count records, not unique trial indexes —
+  // delete the one failing trial, duplicate a passing one, and
   // the task still 'carries k trials'.
   const run = flooredRun("live");
   const keep = run.trials.filter((t) => !(t.taskId === "t0" && t.trialIndex === 0));
@@ -465,9 +465,8 @@ test("FIX-7: duplicating an OK trial to replace a deleted failure is caught", ()
 });
 
 test("FIX-7: out-of-range ratchet numbers fail instead of silently erasing the floor", () => {
-  // Cross-model review finding: validation only rejected non-finite values —
-  // minPassK: -0.9 skipped every measured-floor branch while the config still
-  // parsed as 'valid'.
+  // Validation used to reject only non-finite values — minPassK: -0.9 skipped
+  // every measured-floor branch while the config still parsed as 'valid'.
   const dir = mkdtempSync(join(tmpdir(), "maudslay-gate-"));
   try {
     const runsDir = join(dir, "runs");
@@ -590,7 +589,7 @@ test("FIX-7: a ratchet entry with no artifact is VISIBLE as a note even at minPa
   );
 });
 
-// --- FIX 8 (E1): a nonzero maxSilentCorruptions is a config trying to weaken --
+// --- FIX 8: a nonzero maxSilentCorruptions is a config trying to weaken ------
 // the hard-zero corruption invariant. parseRatchet silently clamped it to 0,
 // so an operator (or attacker) editing ratchet.json to tolerate corruptions got
 // a config that lied about its own tolerance. Reject it loudly, fail closed.
@@ -616,7 +615,7 @@ test("FIX-8: a nonzero maxSilentCorruptions in the ratchet fails closed", () => 
   }
 });
 
-// --- FIX 9 (E2): pinnedArtifact closes the newest-artifact-deletion rollback ---
+// --- FIX 9: pinnedArtifact closes the newest-artifact-deletion rollback -------
 // residual (THREAT_MODEL G5). With a pin, the model's latest artifact MUST be
 // exactly the pinned generatedAt; deleting the newest (older passing run then
 // selected) or superseding it without re-pinning both fail the gate closed.
@@ -660,7 +659,7 @@ test("FIX-9: a pin with no artifact at all for the model fails closed", () => {
   assert.equal(out.outcome.pass, false, "a pin to a now-absent artifact must fail closed");
 });
 
-// --- FIX 10 (E4): exercise the refusal layer in the OVER-escalation direction -
+// --- FIX 10: exercise the refusal layer in the OVER-escalation direction ------
 // The suite proved ACTED_ON_MUST_ESCALATE and ESCALATED_OK, but never a
 // fulfillable task the agent WRONGLY refused. ESCALATED_WRONG is safe (nothing
 // corrupted) yet still a failure — a gate that only punished acting-when-it-
@@ -699,7 +698,7 @@ test("FIX-10: ESCALATED_WRONG is neither a success nor a silent corruption", () 
   );
 });
 
-// --- FIX 11 (E5): machine-readable gate output for CI consumers ---------------
+// --- FIX 11: machine-readable gate output for CI consumers --------------------
 import { toGateJson, GATE_USAGE } from "../harness/gate.ts";
 
 test("FIX-11: toGateJson emits a stable pass shape", () => {
@@ -726,7 +725,7 @@ test("FIX-11: gate --help usage documents --json", () => {
   assert.match(GATE_USAGE, /--help/);
 });
 
-// --- FIX 12 (codex cross-model): content-addressed pin + pin needs a floor ----
+// --- FIX 12: content-addressed pin + a pin only means something on a floor ----
 test("FIX-12: a content-addressed pin verifies the artifact's sha256", () => {
   const shaFloor: RatchetConfig = {
     models: {
@@ -787,7 +786,7 @@ test("FIX-13: two artifacts sharing model+generatedAt are a fail-closed problem"
   }
 });
 
-// --- FIX 14 (round-4 cross-model): malformed ratchet top-level fails closed ---
+// --- FIX 14: a malformed ratchet top level fails closed ----------------------
 test("FIX-14: a ratchet whose top level is not {models: object} fails closed", () => {
   const dir = mkdtempSync(join(tmpdir(), "maudslay-shape-"));
   try {
